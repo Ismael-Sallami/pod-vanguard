@@ -32,22 +32,22 @@ export default function TopologyCanvas({ graph, onRefresh, isCompact = false }) 
 
       volNodes.forEach((n, i) => {
         const step = height / (volNodes.length + 1);
-        positioned.push({ ...n, x: width * 0.12, y: step * (i + 1) });
+        positioned.push({ ...n, name: n.label || n.name || n.id || 'VOL', x: width * 0.12, y: step * (i + 1) });
       });
 
       netNodes.forEach((n, i) => {
         const step = height / (netNodes.length + 1);
-        positioned.push({ ...n, x: width * 0.35, y: step * (i + 1) });
+        positioned.push({ ...n, name: n.label || n.name || n.id || 'NET', x: width * 0.35, y: step * (i + 1) });
       });
 
       cntNodes.forEach((n, i) => {
         const step = height / (cntNodes.length + 1);
-        positioned.push({ ...n, x: width * 0.65, y: step * (i + 1) });
+        positioned.push({ ...n, name: n.label || n.name || n.id || 'POD', x: width * 0.65, y: step * (i + 1) });
       });
 
       portNodes.forEach((n, i) => {
         const step = height / (portNodes.length + 1);
-        positioned.push({ ...n, x: width * 0.88, y: step * (i + 1) });
+        positioned.push({ ...n, name: n.label || n.name || n.id || 'PORT', x: width * 0.88, y: step * (i + 1) });
       });
 
       setNodes(positioned);
@@ -225,18 +225,23 @@ export default function TopologyCanvas({ graph, onRefresh, isCompact = false }) 
               <rect x={nodeWidth - 10} y="2" width="6" height="2" fill={strokeColor} opacity="0.8" />
 
               {/* Nombre del nodo */}
-              <text
-                x={nodeWidth / 2}
-                y={isCompact ? 18 : 22}
-                textAnchor="middle"
-                fill="#F4F1EA"
-                fontSize={isCompact ? '9px' : '10.5px'}
-                fontFamily="JetBrains Mono, monospace"
-                fontWeight="700"
-                letterSpacing="0.04em"
-              >
-                {node.name.length > 15 ? node.name.slice(0, 14) + '…' : node.name}
-              </text>
+              {(() => {
+                const displayName = String(node.name || node.label || node.id || 'NODE');
+                return (
+                  <text
+                    x={nodeWidth / 2}
+                    y={isCompact ? 18 : 22}
+                    textAnchor="middle"
+                    fill="#F4F1EA"
+                    fontSize={isCompact ? '9px' : '10.5px'}
+                    fontFamily="JetBrains Mono, monospace"
+                    fontWeight="700"
+                    letterSpacing="0.04em"
+                  >
+                    {displayName.length > 15 ? displayName.slice(0, 14) + '…' : displayName}
+                  </text>
+                );
+              })()}
 
               {/* Sub-etiqueta de estado / tipo */}
               <text
