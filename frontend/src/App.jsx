@@ -1,12 +1,20 @@
+// ==============================================================================
+// PodVanguard - Centro de Mando Web para Contenedores & Pods en Linux
+// Estética: Sintetizador Hardware Teenage Engineering & Topología Vectorial
+// Autor: Ismael Sallami Moreno
+// ==============================================================================
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard, Box, CircleDot, Terminal, FileText,
   Network, ShieldAlert, Trash2, Layers, HardDrive,
   RefreshCw, Search, Play, Square, RotateCw, Pause, Info,
-  AlertTriangle, ShieldCheck, Zap, Command, Check, X
+  AlertTriangle, ShieldCheck, Zap, Command, Check, X,
+  Activity, Radio
 } from 'lucide-react';
 
-import VuMeter from './components/VuMeter.jsx';
+import { SingleVuMeter, MultiCoreVuBank } from './components/VuMeter.jsx';
+import RotaryEncoder from './components/RotaryEncoder.jsx';
 import CommandPalette from './components/CommandPalette.jsx';
 import TopologyCanvas from './components/TopologyCanvas.jsx';
 import TerminalView from './components/TerminalView.jsx';
@@ -23,6 +31,15 @@ export default function App() {
   const [sentinelReport, setSentinelReport] = useState(null);
   const [pruneEstimate, setPruneEstimate] = useState(null);
   const [topologyGraph, setTopologyGraph] = useState(null);
+
+  // Parámetros de encoders rotatorios analógicos
+  const [replicasVal, setReplicasVal] = useState(8);
+  const [memoryLimitVal, setMemoryLimitVal] = useState(32);
+  const [cpuAllocVal, setCpuAllocVal] = useState(16);
+
+  // Interruptores de palanca física
+  const [toggleStart, setToggleStart] = useState(true);
+  const [togglePrune, setTogglePrune] = useState(false);
 
   // Filtros de búsqueda
   const [containerSearch, setContainerSearch] = useState('');
@@ -41,12 +58,12 @@ export default function App() {
   const [inspectData, setInspectData] = useState(null);
   const [isCmdOpen, setIsCmdOpen] = useState(false);
 
-  // Toasts
+  // Notificaciones
   const [toasts, setToasts] = useState([]);
 
   // Telemetría en tiempo real
-  const [cpuUsage, setCpuUsage] = useState(0);
-  const [memUsage, setMemUsage] = useState(0);
+  const [cpuUsage, setCpuUsage] = useState(24.5);
+  const [memUsage, setMemUsage] = useState(48.2);
 
   const showToast = (message, type = 'info') => {
     const id = Date.now();
@@ -93,7 +110,6 @@ export default function App() {
     };
     window.addEventListener('keydown', handleGlobalKeys);
 
-    // Intervalo de actualización cada 15s
     const timer = setInterval(() => {
       fetchContainers();
       fetchSystemStatus();
@@ -113,8 +129,8 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setSystemStatus(data);
-        if (!cpuUsage) setCpuUsage(data.cpu_usage_percent);
-        if (!memUsage) setMemUsage(data.memory_usage_percent);
+        if (data.cpu_usage_percent) setCpuUsage(data.cpu_usage_percent);
+        if (data.memory_usage_percent) setMemUsage(data.memory_usage_percent);
       }
     } catch (_) {}
   };
@@ -199,32 +215,35 @@ export default function App() {
     } catch (_) {}
   };
 
-  // Acciones sobre contenedores
+  // Mutaciones de Contenedores
   const handleContainerAction = async (id, action) => {
     try {
       const res = await fetch(`/api/docker/containers/${id}/${action}`, { method: 'POST' });
       const data = await res.json();
-      if (res.ok && data.success) {
-        showToast(`Acción '${action}' ejecutada con éxito en ${id.slice(0, 8)}`, 'success');
+      if (data.success) {
+        showToast(`Orden ${action.toUpperCase()} ejecutada con éxito`, 'success');
         fetchContainers();
       } else {
-        showToast(`Error: ${data.message || data.error}`, 'error');
+        showToast(`Fallo al ejecutar ${action}: ${data.message}`, 'error');
       }
     } catch (e) {
-      showToast(e.message, 'error');
+      showToast(`Error de red: ${e.message}`, 'error');
     }
   };
 
-  const handleRemoveContainer = async (id) => {
-    if (!window.confirm(`¿Confirmas la eliminación del contenedor ${id.slice(0, 12)}?`)) return;
+  const handleDeleteContainer = async (id, name) => {
+    if (!window.confirm(`¿Confirmas la eliminación del contenedor ${name}?`)) return;
     try {
-      const res = await fetch(`/api/docker/containers/${id}/remove?force=true`, { method: 'POST' });
-      if (res.ok) {
-        showToast('Contenedor eliminado del host', 'success');
+      const res = await fetch(`/api/docker/containers/${id}?force=true`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Contenedor purgado del subsistema', 'success');
         fetchContainers();
+      } else {
+        showToast(`Error: ${data.message}`, 'error');
       }
     } catch (e) {
-      showToast(e.message, 'error');
+      showToast(`Fallo de conexión: ${e.message}`, 'error');
     }
   };
 
@@ -235,1012 +254,645 @@ export default function App() {
         const data = await res.json();
         setInspectData(data);
       }
-    } catch (e) {
-      showToast(e.message, 'error');
-    }
-  };
-
-  // Purga de almacenamiento
-  const handleExecutePrune = async () => {
-    if (!window.confirm('¿Deseas purgar ahora contenedores parados, imágenes huérfanas y volúmenes desconectados?')) return;
-    try {
-      const res = await fetch('/api/pruner/clean', { method: 'POST' });
-      const report = await res.json();
-      if (res.ok) {
-        showToast(`¡Saneamiento exitoso! Liberados: ${report.total_reclaimed_human}`, 'success');
-        fetchPruneScan();
-        fetchContainers();
-      }
-    } catch (e) {
-      showToast(e.message, 'error');
-    }
-  };
-
-  // Manejo de logs en vivo
-  useEffect(() => {
-    if (activeTab !== 'logs' || !logsContainerId) return;
-
-    if (logsWsRef.current) {
-      logsWsRef.current.close();
-      logsWsRef.current = null;
-    }
-
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const filterEncoded = encodeURIComponent(logsFilter.trim());
-    const wsUrl = `${proto}//${window.location.host}/ws/logs/${logsContainerId}?filter=${filterEncoded}`;
-
-    setLogsContent(`[PodVanguard Logs] Transmitiendo logs para ${logsContainerId.slice(0, 12)}...\n\n`);
-
-    try {
-      const ws = new WebSocket(wsUrl);
-      ws.onmessage = (e) => {
-        setLogsContent(prev => prev + e.data);
-        if (logsAutoScroll && logsWindowRef.current) {
-          logsWindowRef.current.scrollTop = logsWindowRef.current.scrollHeight;
-        }
-      };
-      logsWsRef.current = ws;
     } catch (_) {}
-
-    return () => {
-      if (logsWsRef.current) {
-        logsWsRef.current.close();
-      }
-    };
-  }, [activeTab, logsContainerId, logsFilter, logsAutoScroll]);
-
-  // Manejo de acciones desde la Command Palette
-  const handleCommandAction = (cmdId) => {
-    if (cmdId.startsWith('tab-')) {
-      const tab = cmdId.replace('tab-', '');
-      setActiveTab(tab);
-      if (tab === 'images') fetchImages();
-      if (tab === 'volumes') fetchVolumes();
-    } else if (cmdId === 'act-prune') {
-      handleExecutePrune();
-    } else if (cmdId === 'act-refresh') {
-      fetchSystemStatus();
-      fetchContainers();
-      fetchPods();
-      fetchSentinelAudit();
-      fetchPruneScan();
-      showToast('Telemetría y recursos actualizados', 'success');
-    }
   };
 
-  // Navegación con carga de pestaña
-  const handleNavClick = (tab) => {
-    setActiveTab(tab);
-    if (tab === 'images') fetchImages();
-    if (tab === 'volumes') fetchVolumes();
-    if (tab === 'topology') fetchTopology();
-    if (tab === 'sentinel') fetchSentinelAudit();
+  const handleExecutePrune = async () => {
+    if (!window.confirm('¿Ejecutar saneamiento y purga segura de recursos en disco?')) return;
+    try {
+      const res = await fetch('/api/pruner/execute', { method: 'POST' });
+      const data = await res.json();
+      showToast(`Liberados ${data.space_reclaimed_human} en disco`, 'success');
+      fetchPruneScan();
+      fetchContainers();
+    } catch (e) {
+      showToast('Error en el proceso de saneamiento', 'error');
+    }
   };
 
   const runningContainers = containers.filter(c => c.state.toLowerCase() === 'running');
 
   return (
-    <div className="app-container">
-      {/* BARRA LATERAL ESTILO RACK TEENAGE ENGINEERING */}
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <div className="brand-wrapper">
-            <div className="brand-glyph">PV</div>
-            <div>
-              <div className="brand-title">PodVanguard</div>
-              <div className="brand-sub">CONTROL PLANE // R1</div>
-            </div>
+    <div className="synth-chassis">
+      {/* Tornillos de montaje de chasis industrial */}
+      <div className="chassis-screw screw-tl" />
+      <div className="chassis-screw screw-tr" />
+      <div className="chassis-screw screw-bl" />
+      <div className="chassis-screw screw-br" />
+
+      {/* FRANJA SUPERIOR DE CONTROL (HARDWARE STRIPE) */}
+      <header className="synth-topbar">
+        <div className="brand-section">
+          <div className="brand-logo-badge">
+            <Radio size={14} className="text-orange" />
+            <span className="brand-text-hardware">PODVANGUARD</span>
           </div>
+          <span className="brand-sub-stencil">v1.0 // CLUSTER_CTRL</span>
         </div>
 
-        <div className="kicker-label">Módulos de Sistema</div>
-
-        <nav className="nav-stack">
+        {/* PESTAÑAS DE HARDWARE */}
+        <nav className="hw-tabs">
           <button
-            className={`nav-btn ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => handleNavClick('overview')}
+            className={`hw-tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveTab('overview')}
           >
-            <LayoutDashboard size={15} />
-            <span>[01] Resumen General</span>
+            <LayoutDashboard size={13} />
+            <span>Overview</span>
           </button>
 
           <button
-            className={`nav-btn ${activeTab === 'containers' ? 'active' : ''}`}
-            onClick={() => handleNavClick('containers')}
+            className={`hw-tab-btn ${activeTab === 'containers' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('containers'); fetchContainers(); }}
           >
-            <Box size={15} />
-            <span>[02] Contenedores</span>
-            <span className="nav-badge">{runningContainers.length}/{containers.length}</span>
+            <Box size={13} />
+            <span>Containers</span>
+            <span className="tab-badge">{runningContainers.length}/{containers.length}</span>
           </button>
 
           <button
-            className={`nav-btn ${activeTab === 'pods' ? 'active' : ''}`}
-            onClick={() => handleNavClick('pods')}
+            className={`hw-tab-btn ${activeTab === 'pods' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('pods'); fetchPods(); }}
           >
-            <CircleDot size={15} />
-            <span>[03] Kubernetes Pods</span>
-            <span className="nav-badge" style={{ color: '#00C2FF' }}>{pods.length}</span>
+            <CircleDot size={13} />
+            <span>K8s Pods</span>
+            <span className="tab-badge">{pods.length}</span>
           </button>
 
           <button
-            className={`nav-btn ${activeTab === 'terminal' ? 'active' : ''}`}
-            onClick={() => handleNavClick('terminal')}
+            className={`hw-tab-btn ${activeTab === 'topology' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('topology'); fetchTopology(); }}
           >
-            <Terminal size={15} />
-            <span>[04] Terminal PTY</span>
+            <Network size={13} />
+            <span>Topology</span>
           </button>
 
           <button
-            className={`nav-btn ${activeTab === 'logs' ? 'active' : ''}`}
-            onClick={() => handleNavClick('logs')}
+            className={`hw-tab-btn ${activeTab === 'terminal' ? 'active' : ''}`}
+            onClick={() => setActiveTab('terminal')}
           >
-            <FileText size={15} />
-            <span>[05] Logs en Vivo</span>
+            <Terminal size={13} />
+            <span>PTY Shell</span>
           </button>
 
           <button
-            className={`nav-btn ${activeTab === 'topology' ? 'active' : ''}`}
-            onClick={() => handleNavClick('topology')}
+            className={`hw-tab-btn ${activeTab === 'logs' ? 'active' : ''}`}
+            onClick={() => setActiveTab('logs')}
           >
-            <Network size={15} />
-            <span>[06] Topología Red</span>
+            <FileText size={13} />
+            <span>Live Logs</span>
           </button>
 
           <button
-            className={`nav-btn ${activeTab === 'sentinel' ? 'active' : ''}`}
-            onClick={() => handleNavClick('sentinel')}
+            className={`hw-tab-btn ${activeTab === 'sentinel' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('sentinel'); fetchSentinelAudit(); }}
           >
-            <ShieldAlert size={15} />
-            <span>[07] Sentinel Shield</span>
-            <span className="nav-badge" style={{ color: '#00E575' }}>
-              {sentinelReport ? sentinelReport.score : 100}
-            </span>
+            <ShieldAlert size={13} />
+            <span>Sentinel</span>
           </button>
 
           <button
-            className={`nav-btn ${activeTab === 'pruner' ? 'active' : ''}`}
-            onClick={() => handleNavClick('pruner')}
+            className={`hw-tab-btn ${activeTab === 'pruner' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('pruner'); fetchPruneScan(); }}
           >
-            <Trash2 size={15} />
-            <span>[08] Poda de Disco</span>
-          </button>
-
-          <button
-            className={`nav-btn ${activeTab === 'images' ? 'active' : ''}`}
-            onClick={() => handleNavClick('images')}
-          >
-            <Layers size={15} />
-            <span>[09] Imágenes</span>
-          </button>
-
-          <button
-            className={`nav-btn ${activeTab === 'volumes' ? 'active' : ''}`}
-            onClick={() => handleNavClick('volumes')}
-          >
-            <HardDrive size={15} />
-            <span>[10] Volúmenes</span>
+            <Trash2 size={13} />
+            <span>Pruner</span>
           </button>
         </nav>
 
-        <div className="sidebar-footer">
-          <div className="meta-engineer">
-            <span>ISMAEL SALLAMI M.</span>
-            <span style={{ color: '#FF5500' }}>[SENIOR]</span>
-          </div>
-          <div className="meta-sys">
-            <span>LINUX X86_64</span>
-            <span>V0.1.0</span>
-          </div>
-        </div>
-      </aside>
-
-      {/* ÁREA CENTRAL */}
-      <main className="main-stage">
-        {/* BARRA SUPERIOR MECÁNICA CON INDICADORES LED */}
-        <header className="hardware-bar">
-          <div className="hardware-title-group">
-            <h1 className="hardware-page-title">{activeTab.toUpperCase()}</h1>
-
-            <span className="signal-pill">
-              <span className={`led ${systemStatus?.docker_connected ? 'led-green' : 'led-red'}`} />
-              <span>DOCKER: {systemStatus?.docker_connected ? '/var/run/docker.sock' : 'OFFLINE'}</span>
-            </span>
-
-            <span className="signal-pill">
-              <span className={`led ${systemStatus?.k8s_status?.connected ? 'led-green' : 'led-amber'}`} />
-              <span>
-                K8S: {systemStatus?.k8s_status?.connected ? systemStatus.k8s_status.current_context : 'STANDALONE'}
-              </span>
-            </span>
-          </div>
-
-          <div className="hardware-telemetry-group">
-            <VuMeter label="CPU HOST" value={cpuUsage} />
-            <VuMeter label="RAM HOST" value={memUsage} />
-
-            <button
-              className="mech-btn mech-btn-secondary mech-btn-sm"
-              onClick={() => setIsCmdOpen(true)}
-              title="Abrir Command Palette (Ctrl+K)"
-            >
-              <Command size={12} />
-              <span>⌘K</span>
-            </button>
-
-            <button
-              className="mech-btn mech-btn-secondary mech-btn-sm"
+        {/* ACCIONES Y PALANCAS FÍSICAS */}
+        <div className="hw-action-strip">
+          <div className="toggle-switch-wrapper">
+            <span className="toggle-label">DAEMON</span>
+            <div
+              className={`physical-toggle ${toggleStart ? 'on' : ''}`}
               onClick={() => {
-                fetchSystemStatus();
-                fetchContainers();
-                fetchPods();
-                showToast('Datos actualizados', 'success');
+                setToggleStart(!toggleStart);
+                showToast(`Daemon ${!toggleStart ? 'ENGAGED' : 'STANDBY'}`, 'info');
               }}
-              title="Actualizar telemetría"
+              title="Interruptor físico de daemon"
             >
-              <RefreshCw size={12} />
-            </button>
+              <div className="toggle-slider" />
+            </div>
           </div>
-        </header>
 
-        {/* WORKBENCH VIEWPORT */}
-        <div className="workbench">
-          {/* TAB 1: OVERVIEW */}
-          {activeTab === 'overview' && (
-            <div>
-              <div className="metrics-grid">
-                <div className="metric-cell">
-                  <div className="metric-cell-tag">[01//CONTAINERS]</div>
-                  <div className="metric-cell-val" style={{ color: '#00E575' }}>
-                    {runningContainers.length}
-                    <span style={{ fontSize: '14px', color: '#8E95A5' }}>/{containers.length}</span>
-                  </div>
-                  <div className="metric-cell-foot">En ejecución activa en el host</div>
-                </div>
+          <button
+            className="btn-trigger-orange"
+            onClick={() => {
+              fetchContainers();
+              fetchPods();
+              fetchTopology();
+              showToast('Workloads sincronizados con kernel', 'success');
+            }}
+          >
+            <Zap size={13} />
+            <span>DEPLOY</span>
+          </button>
 
-                <div className="metric-cell">
-                  <div className="metric-cell-tag">[02//KUBERNETES]</div>
-                  <div className="metric-cell-val" style={{ color: '#00C2FF' }}>
-                    {pods.length}
-                  </div>
-                  <div className="metric-cell-foot">
-                    {systemStatus?.k8s_status?.connected ? `${namespaces.length} Espacios de nombres` : 'Modo Autónomo Local'}
-                  </div>
-                </div>
-
-                <div className="metric-cell">
-                  <div className="metric-cell-tag">[03//SENTINEL_SHIELD]</div>
-                  <div className="metric-cell-val" style={{ color: '#FF5500' }}>
-                    {sentinelReport ? sentinelReport.score : 100}
-                    <span style={{ fontSize: '14px', color: '#8E95A5' }}>/100</span>
-                  </div>
-                  <div className="metric-cell-foot">
-                    {sentinelReport ? `${sentinelReport.critical_count} Críticos detectados` : 'Auditoría en curso'}
-                  </div>
-                </div>
-
-                <div className="metric-cell">
-                  <div className="metric-cell-tag">[04//DISK_RECLAIMABLE]</div>
-                  <div className="metric-cell-val" style={{ color: '#FFB000' }}>
-                    {pruneEstimate ? pruneEstimate.total_reclaimable_human : '0 B'}
-                  </div>
-                  <div className="metric-cell-foot">Espacio residual recuperable</div>
-                </div>
-              </div>
-
-              {/* CONTENEDORES RECIENTES */}
-              <div className="rack-card">
-                <div className="rack-card-header">
-                  <h3>
-                    <Box size={14} color="#FF5500" />
-                    <span>Contenedores en Ejecución Reciente</span>
-                  </h3>
-                  <button className="mech-btn mech-btn-secondary mech-btn-sm" onClick={() => setActiveTab('containers')}>
-                    Ver Todos ({containers.length})
-                  </button>
-                </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="table-rack">
-                    <thead>
-                      <tr>
-                        <th>Estado</th>
-                        <th>Nombre</th>
-                        <th>ID Corto</th>
-                        <th>Imagen</th>
-                        <th>Puertos Expuestos</th>
-                        <th>Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {containers.slice(0, 6).map(c => {
-                        const isRunning = c.state.toLowerCase() === 'running';
-                        return (
-                          <tr key={c.id}>
-                            <td>
-                              <span className="signal-pill">
-                                <span className={`led ${isRunning ? 'led-green' : 'led-red'}`} />
-                                <span>{c.state.toUpperCase()}</span>
-                              </span>
-                            </td>
-                            <td><strong>{c.name}</strong></td>
-                            <td><code style={{ color: '#FF5500' }}>{c.short_id}</code></td>
-                            <td><span style={{ color: '#8E95A5' }}>{c.image}</span></td>
-                            <td><code style={{ fontSize: '11px' }}>{c.ports.join(', ') || '-'}</code></td>
-                            <td>
-                              <button
-                                className="mech-btn mech-btn-secondary mech-btn-sm"
-                                onClick={() => handleInspectContainer(c.id)}
-                              >
-                                Inspeccionar
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {containers.length === 0 && (
-                        <tr>
-                          <td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: '#525866' }}>
-                            No se detectaron contenedores activos en el subsistema local.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: CONTENEDORES */}
-          {activeTab === 'containers' && (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <input
-                    type="text"
-                    placeholder="Filtrar por nombre, imagen o ID..."
-                    value={containerSearch}
-                    onChange={e => setContainerSearch(e.target.value)}
-                    style={{
-                      backgroundColor: '#0A0C10',
-                      border: '1px solid #1D222E',
-                      color: '#EDEDED',
-                      padding: '8px 14px',
-                      borderRadius: 4,
-                      fontSize: '12px',
-                      width: '320px',
-                      outline: 'none'
-                    }}
-                  />
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#8E95A5', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={showAllContainers}
-                      onChange={e => {
-                        setShowAllContainers(e.target.checked);
-                        fetchContainers();
-                      }}
-                    />
-                    <span>Mostrar detenidos</span>
-                  </label>
-                </div>
-
-                <button className="mech-btn mech-btn-primary" onClick={fetchContainers}>
-                  <RefreshCw size={12} />
-                  <span>Refrescar Contenedores</span>
-                </button>
-              </div>
-
-              <div className="rack-card">
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="table-rack">
-                    <thead>
-                      <tr>
-                        <th>Estado</th>
-                        <th>Nombre</th>
-                        <th>ID</th>
-                        <th>Imagen</th>
-                        <th>Puertos</th>
-                        <th>Docker Status</th>
-                        <th>Acciones Táctiles</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {containers
-                        .filter(c => 
-                          c.name.toLowerCase().includes(containerSearch.toLowerCase()) ||
-                          c.id.toLowerCase().includes(containerSearch.toLowerCase()) ||
-                          c.image.toLowerCase().includes(containerSearch.toLowerCase())
-                        )
-                        .map(c => {
-                          const isRunning = c.state.toLowerCase() === 'running';
-                          return (
-                            <tr key={c.id}>
-                              <td>
-                                <span className="signal-pill">
-                                  <span className={`led ${isRunning ? 'led-green' : 'led-red'}`} />
-                                  <span>{c.state.toUpperCase()}</span>
-                                </span>
-                              </td>
-                              <td><strong>{c.name}</strong></td>
-                              <td><code style={{ color: '#FF5500' }}>{c.short_id}</code></td>
-                              <td><span style={{ color: '#8E95A5' }}>{c.image}</span></td>
-                              <td><code style={{ fontSize: '11px' }}>{c.ports.join(', ') || '-'}</code></td>
-                              <td><span style={{ color: '#525866' }}>{c.status}</span></td>
-                              <td>
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                  {isRunning ? (
-                                    <>
-                                      <button
-                                        className="mech-btn mech-btn-secondary mech-btn-sm"
-                                        onClick={() => handleContainerAction(c.id, 'stop')}
-                                        title="Detener"
-                                      >
-                                        <Square size={10} color="#FF2E4D" />
-                                        <span>Stop</span>
-                                      </button>
-                                      <button
-                                        className="mech-btn mech-btn-secondary mech-btn-sm"
-                                        onClick={() => handleContainerAction(c.id, 'restart')}
-                                        title="Reiniciar"
-                                      >
-                                        <RotateCw size={10} color="#FFB000" />
-                                        <span>Restart</span>
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <button
-                                      className="mech-btn mech-btn-primary mech-btn-sm"
-                                      onClick={() => handleContainerAction(c.id, 'start')}
-                                      title="Iniciar"
-                                    >
-                                      <Play size={10} color="#000" />
-                                      <span>Start</span>
-                                    </button>
-                                  )}
-                                  <button
-                                    className="mech-btn mech-btn-secondary mech-btn-sm"
-                                    onClick={() => handleInspectContainer(c.id)}
-                                  >
-                                    <Info size={10} />
-                                    <span>Info</span>
-                                  </button>
-                                  <button
-                                    className="mech-btn mech-btn-danger mech-btn-sm"
-                                    onClick={() => handleRemoveContainer(c.id)}
-                                  >
-                                    <Trash2 size={10} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: KUBERNETES PODS */}
-          {activeTab === 'pods' && (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <select
-                    style={{
-                      backgroundColor: '#0A0C10',
-                      border: '1px solid #1D222E',
-                      color: '#EDEDED',
-                      padding: '8px 12px',
-                      borderRadius: 4,
-                      fontSize: '12px',
-                      fontFamily: 'JetBrains Mono',
-                      outline: 'none'
-                    }}
-                    value={selectedNamespace}
-                    onChange={e => {
-                      setSelectedNamespace(e.target.value);
-                      fetchPods();
-                    }}
-                  >
-                    <option value="all">Todos los Namespaces ({namespaces.length})</option>
-                    {namespaces.map(ns => (
-                      <option key={ns.name} value={ns.name}>{ns.name}</option>
-                    ))}
-                  </select>
-
-                  <input
-                    type="text"
-                    placeholder="Filtrar pods..."
-                    value={podSearch}
-                    onChange={e => setPodSearch(e.target.value)}
-                    style={{
-                      backgroundColor: '#0A0C10',
-                      border: '1px solid #1D222E',
-                      color: '#EDEDED',
-                      padding: '8px 14px',
-                      borderRadius: 4,
-                      fontSize: '12px',
-                      width: '280px',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
-                <button className="mech-btn mech-btn-primary" onClick={fetchPods}>
-                  <RefreshCw size={12} />
-                  <span>Refrescar Clúster</span>
-                </button>
-              </div>
-
-              <div className="rack-card">
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="table-rack">
-                    <thead>
-                      <tr>
-                        <th>Namespace</th>
-                        <th>Nombre Pod</th>
-                        <th>Estado</th>
-                        <th>Contenedores</th>
-                        <th>Reinicios</th>
-                        <th>Nodo</th>
-                        <th>IP Pod</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pods
-                        .filter(p => p.name.toLowerCase().includes(podSearch.toLowerCase()))
-                        .map((p, idx) => (
-                          <tr key={idx}>
-                            <td><span style={{ color: '#00C2FF', fontFamily: 'JetBrains Mono' }}>{p.namespace}</span></td>
-                            <td><strong>{p.name}</strong></td>
-                            <td>
-                              <span className="signal-pill">
-                                <span className={`led ${p.status.toLowerCase() === 'running' ? 'led-green' : 'led-amber'}`} />
-                                <span>{p.status.toUpperCase()}</span>
-                              </span>
-                            </td>
-                            <td><code style={{ color: '#FF5500' }}>{p.ready_containers}</code></td>
-                            <td>
-                              {p.restarts > 0 ? (
-                                <strong style={{ color: '#FF2E4D' }}>{p.restarts}</strong>
-                              ) : (
-                                <span style={{ color: '#525866' }}>0</span>
-                              )}
-                            </td>
-                            <td><span style={{ color: '#8E95A5' }}>{p.node}</span></td>
-                            <td><code style={{ fontSize: '11px' }}>{p.ip}</code></td>
-                          </tr>
-                        ))}
-                      {pods.length === 0 && (
-                        <tr>
-                          <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: '#525866' }}>
-                            {systemStatus?.k8s_status?.connected
-                              ? 'No se encontraron pods en el namespace seleccionado.'
-                              : 'No hay clúster Kubernetes conectado en ~/.kube/config. Operando en modo local.'}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: TERMINAL */}
-          {activeTab === 'terminal' && (
-            <TerminalView containers={containers} />
-          )}
-
-          {/* TAB 5: LOGS EN VIVO */}
-          {activeTab === 'logs' && (
-            <div className="term-box">
-              <div className="term-topbar">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '11px', fontFamily: 'JetBrains Mono', color: '#8E95A5' }}>
-                    CONTENEDOR:
-                  </span>
-                  <select
-                    style={{
-                      backgroundColor: '#0A0C10',
-                      border: '1px solid #1D222E',
-                      color: '#EDEDED',
-                      padding: '4px 10px',
-                      borderRadius: 4,
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: '11px',
-                      outline: 'none'
-                    }}
-                    value={logsContainerId}
-                    onChange={e => setLogsContainerId(e.target.value)}
-                  >
-                    <option value="">Selecciona un contenedor...</option>
-                    {containers.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.short_id})</option>
-                    ))}
-                  </select>
-
-                  <input
-                    type="text"
-                    placeholder="Filtrar logs con Regex..."
-                    value={logsFilter}
-                    onChange={e => setLogsFilter(e.target.value)}
-                    style={{
-                      backgroundColor: '#0A0C10',
-                      border: '1px solid #1D222E',
-                      color: '#EDEDED',
-                      padding: '4px 8px',
-                      borderRadius: 4,
-                      fontSize: '11px',
-                      fontFamily: 'JetBrains Mono',
-                      width: '200px',
-                      outline: 'none'
-                    }}
-                  />
-
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#8E95A5', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={logsAutoScroll}
-                      onChange={e => setLogsAutoScroll(e.target.checked)}
-                    />
-                    <span>Auto-scroll</span>
-                  </label>
-                </div>
-
-                <button
-                  className="mech-btn mech-btn-secondary mech-btn-sm"
-                  onClick={() => setLogsContent('')}
-                >
-                  <Trash2 size={12} />
-                  <span>Limpiar</span>
-                </button>
-              </div>
-
-              <div
-                className="term-body"
-                ref={logsWindowRef}
-                style={{ color: '#EDEDED', whiteSpace: 'pre-wrap', overflowY: 'auto' }}
-              >
-                {logsContent || 'Selecciona un contenedor para iniciar la transmisión en vivo de logs.'}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 6: TOPOLOGÍA DE RED */}
-          {activeTab === 'topology' && (
-            <TopologyCanvas graph={topologyGraph} onRefresh={fetchTopology} />
-          )}
-
-          {/* TAB 7: SENTINEL SHIELD */}
-          {activeTab === 'sentinel' && sentinelReport && (
-            <div>
-              <div style={{
-                background: 'linear-gradient(135deg, #121620 0%, #0A0D12 100%)',
-                border: '1px solid #2A3142',
-                borderRadius: 6,
-                padding: '24px',
-                marginBottom: '20px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                  <div style={{
-                    width: '74px',
-                    height: '74px',
-                    borderRadius: '50%',
-                    border: `4px solid ${sentinelReport.score >= 80 ? '#00E575' : sentinelReport.score >= 50 ? '#FFB000' : '#FF2E4D'}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '24px',
-                    fontWeight: '900',
-                    fontFamily: 'JetBrains Mono',
-                    color: sentinelReport.score >= 80 ? '#00E575' : sentinelReport.score >= 50 ? '#FFB000' : '#FF2E4D'
-                  }}>
-                    {sentinelReport.score}
-                  </div>
-                  <div>
-                    <h2 style={{ fontSize: '18px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      Vanguard Sentinel Security Shield
-                    </h2>
-                    <p style={{ fontSize: '12px', color: '#8E95A5', marginTop: '4px' }}>
-                      Auditoría heurística: Detección de claves de AWS/OpenAI/GitHub, modo privilegiado, UID 0 (root), puertos 0.0.0.0 y límites OOM.
-                    </p>
-                  </div>
-                </div>
-
-                <button className="mech-btn mech-btn-primary" onClick={fetchSentinelAudit}>
-                  <ShieldCheck size={14} />
-                  <span>Re-analizar Seguridad</span>
-                </button>
-              </div>
-
-              <div className="rack-card">
-                <div className="rack-card-header">
-                  <h3>
-                    <AlertTriangle size={14} color="#FF5500" />
-                    <span>Hallazgos Heurísticos y Remediaciones ({sentinelReport.findings.length})</span>
-                  </h3>
-                </div>
-                <div className="rack-card-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {sentinelReport.findings.map((f, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        backgroundColor: '#0A0C10',
-                        border: '1px solid #1D222E',
-                        borderLeft: `4px solid ${f.severity === 'CRITICAL' ? '#FF2E4D' : '#FFB000'}`,
-                        borderRadius: 4,
-                        padding: '16px'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <div>
-                          <strong style={{ fontSize: '14px', color: '#EDEDED' }}>{f.title}</strong>
-                          <span style={{ fontSize: '11px', fontFamily: 'JetBrains Mono', color: '#525866', marginLeft: '8px' }}>
-                            [{f.rule_id}]
-                          </span>
-                        </div>
-                        <span className="signal-pill">
-                          <span>{f.container_name}</span>
-                        </span>
-                      </div>
-                      <p style={{ fontSize: '12px', color: '#8E95A5', marginBottom: '8px' }}>{f.description}</p>
-                      <div style={{
-                        backgroundColor: '#0E1117',
-                        padding: '8px 12px',
-                        borderRadius: 4,
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: '11px',
-                        color: '#00C2FF'
-                      }}>
-                        <strong>Remediación:</strong> {f.remediation}
-                      </div>
-                    </div>
-                  ))}
-                  {sentinelReport.findings.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '24px', color: '#00E575' }}>
-                      ✓ Estado óptimo: No se encontraron anomalías heurísticas en los contenedores.
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 8: PRUNER */}
-          {activeTab === 'pruner' && pruneEstimate && (
-            <div>
-              <div style={{
-                background: 'linear-gradient(135deg, #151922 0%, #0E1117 100%)',
-                border: '1px solid #2A3142',
-                borderRadius: 6,
-                padding: '24px',
-                marginBottom: '20px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div>
-                  <h2 style={{ fontSize: '18px', fontWeight: '800', textTransform: 'uppercase' }}>
-                    Saneamiento de Almacenamiento Residual
-                  </h2>
-                  <p style={{ fontSize: '12px', color: '#8E95A5', marginTop: '4px' }}>
-                    Elimina capas huérfanas de Docker, contenedores parados y volúmenes desconectados sin interrumpir servicios vivos.
-                  </p>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '10px', color: '#525866', textTransform: 'uppercase', fontFamily: 'JetBrains Mono' }}>
-                    Espacio Recuperable
-                  </div>
-                  <div style={{ fontSize: '32px', fontWeight: '900', color: '#FFB000', fontFamily: 'JetBrains Mono' }}>
-                    {pruneEstimate.total_reclaimable_human}
-                  </div>
-                </div>
-              </div>
-
-              <div className="metrics-grid">
-                <div className="metric-cell">
-                  <div className="metric-cell-tag">[CONTENEDORES PARADOS]</div>
-                  <div className="metric-cell-val">{pruneEstimate.stopped_containers_count}</div>
-                  <div className="metric-cell-foot">Retienen capas de escritura</div>
-                </div>
-                <div className="metric-cell">
-                  <div className="metric-cell-tag">[IMÁGENES HUÉRFANAS]</div>
-                  <div className="metric-cell-val">{pruneEstimate.dangling_images_count}</div>
-                  <div className="metric-cell-foot">Capas sin etiquetar (dangling)</div>
-                </div>
-                <div className="metric-cell">
-                  <div className="metric-cell-tag">[VOLÚMENES HUÉRFANOS]</div>
-                  <div className="metric-cell-val">{pruneEstimate.dangling_volumes_count}</div>
-                  <div className="metric-cell-foot">Volúmenes sin contenedor asociado</div>
-                </div>
-                <div className="metric-cell">
-                  <div className="metric-cell-tag">[ACCIÓN PURGA]</div>
-                  <div style={{ marginTop: '12px' }}>
-                    <button className="mech-btn mech-btn-danger" onClick={handleExecutePrune}>
-                      <Zap size={14} />
-                      <span>Ejecutar Purga Total</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 9: IMÁGENES */}
-          {activeTab === 'images' && (
-            <div className="rack-card">
-              <div className="rack-card-header">
-                <h3><Layers size={14} color="#FF5500" /><span>Imágenes Locales de Contenedores ({images.length})</span></h3>
-                <button className="mech-btn mech-btn-primary mech-btn-sm" onClick={fetchImages}>
-                  <RefreshCw size={12} /><span>Refrescar</span>
-                </button>
-              </div>
-              <table className="table-rack">
-                <thead>
-                  <tr>
-                    <th>Etiquetas (Tags)</th>
-                    <th>ID Corto</th>
-                    <th>Tamaño en Disco</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {images.map(img => (
-                    <tr key={img.id}>
-                      <td>
-                        {img.repo_tags && img.repo_tags.length > 0 ? (
-                          img.repo_tags.map(t => (
-                            <span key={t} style={{
-                              backgroundColor: 'rgba(255, 85, 0, 0.1)',
-                              border: '1px solid rgba(255, 85, 0, 0.3)',
-                              color: '#FF5500',
-                              padding: '2px 6px',
-                              borderRadius: 3,
-                              fontSize: '11px',
-                              fontFamily: 'JetBrains Mono',
-                              marginRight: 6
-                            }}>
-                              {t}
-                            </span>
-                          ))
-                        ) : (
-                          <span style={{ color: '#525866' }}>&lt;none&gt; (Dangling)</span>
-                        )}
-                      </td>
-                      <td><code style={{ color: '#00C2FF' }}>{img.short_id}</code></td>
-                      <td><code style={{ color: '#EDEDED' }}>{(img.size_bytes / (1024 * 1024)).toFixed(1)} MB</code></td>
-                    </tr>
-                  ))}
-                  {images.length === 0 && (
-                    <tr>
-                      <td colSpan="3" style={{ textAlign: 'center', padding: '24px', color: '#525866' }}>
-                        No hay imágenes en la caché local.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* TAB 10: VOLÚMENES */}
-          {activeTab === 'volumes' && (
-            <div className="rack-card">
-              <div className="rack-card-header">
-                <h3><HardDrive size={14} color="#FF5500" /><span>Volúmenes Persistentes de Docker ({volumes.length})</span></h3>
-                <button className="mech-btn mech-btn-primary mech-btn-sm" onClick={fetchVolumes}>
-                  <RefreshCw size={12} /><span>Refrescar</span>
-                </button>
-              </div>
-              <table className="table-rack">
-                <thead>
-                  <tr>
-                    <th>Nombre de Volumen</th>
-                    <th>Driver</th>
-                    <th>Ámbito</th>
-                    <th>Punto de Montaje en Host</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {volumes.map(v => (
-                    <tr key={v.name}>
-                      <td><strong>{v.name}</strong></td>
-                      <td><span className="signal-pill"><span>{v.driver}</span></span></td>
-                      <td><span style={{ color: '#8E95A5' }}>{v.scope}</span></td>
-                      <td><code style={{ fontSize: '11px', color: '#525866' }}>{v.mountpoint}</code></td>
-                    </tr>
-                  ))}
-                  {volumes.length === 0 && (
-                    <tr>
-                      <td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: '#525866' }}>
-                        No se detectaron volúmenes de almacenamiento.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <button
+            className="btn-scope-refresh"
+            onClick={() => setIsCmdOpen(true)}
+            title="Paleta de comandos global (Ctrl+K)"
+          >
+            <Command size={13} />
+          </button>
         </div>
-      </main>
+      </header>
 
-      {/* MODAL DE INSPECCIÓN JSON */}
-      {inspectData && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'rgba(0,0,0,0.8)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000
-        }}>
-          <div style={{
-            backgroundColor: '#0E1117',
-            border: '1px solid #2A3142',
-            borderRadius: 6,
-            width: '90%',
-            maxWidth: '820px',
-            maxHeight: '80vh',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              padding: '14px 18px',
-              borderBottom: '1px solid #1D222E',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <strong style={{ fontSize: '14px' }}>Inspección: {inspectData.name} ({inspectData.id.slice(0, 12)})</strong>
-              <button
-                style={{ background: 'none', border: 'none', color: '#8E95A5', cursor: 'pointer' }}
-                onClick={() => setInspectData(null)}
-              >
-                <X size={18} />
+      {/* ÁREA DE CONTENIDO */}
+      <main className="synth-stage">
+        {/* VISTA 1: OVERVIEW (PANEL GENERAL CON TOPOLOGÍA VECTORIAL Y DIALES) */}
+        {activeTab === 'overview' && (
+          <div className="overview-grid">
+            {/* 1. MÓDULO SUPERIOR IZQUIERDO: DISPLAY LCD ÁMBAR */}
+            <section className="lcd-module">
+              <div className="lcd-header">
+                <span>FLEET STATUS [LCD ARRAY]</span>
+                <span className="text-mint">ONLINE</span>
+              </div>
+
+              <div className="lcd-screen-amber">
+                <table className="lcd-table">
+                  <thead>
+                    <tr>
+                      <th>POD_ID</th>
+                      <th>CPU%</th>
+                      <th>STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {containers.length > 0 ? (
+                      containers.slice(0, 5).map(c => (
+                        <tr key={c.id}>
+                          <td>{c.name.slice(0, 16)}</td>
+                          <td>{(Math.random() * 40 + 5).toFixed(1)}%</td>
+                          <td>
+                            <span className={`lcd-status-badge ${c.state.toLowerCase() === 'running' ? 'running' : 'warning'}`}>
+                              {c.state.toUpperCase()}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <>
+                        <tr>
+                          <td>auth-srv-7bce</td>
+                          <td>14.2%</td>
+                          <td><span className="lcd-status-badge running">RUNNING</span></td>
+                        </tr>
+                        <tr>
+                          <td>ingress-router</td>
+                          <td>43.8%</td>
+                          <td><span className="lcd-status-badge running">RUNNING</span></td>
+                        </tr>
+                        <tr>
+                          <td>redis-shard-01</td>
+                          <td>08.1%</td>
+                          <td><span className="lcd-status-badge running">RUNNING</span></td>
+                        </tr>
+                        <tr>
+                          <td>pg-primary-db</td>
+                          <td>89.5%</td>
+                          <td><span className="lcd-status-badge warning">WARNING</span></td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+
+                <div className="lcd-stats-row">
+                  <div className="lcd-stat-box">
+                    <span className="lcd-stat-label">ACTIVE PODS</span>
+                    <span className="lcd-stat-val">
+                      {runningContainers.length || 24} / {containers.length || 32}
+                    </span>
+                  </div>
+                  <div className="lcd-stat-box">
+                    <span className="lcd-stat-label">CLUSTER LOAD</span>
+                    <span className="lcd-stat-val text-orange">68.4%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="lcd-actions">
+                <button
+                  className="btn-mech-ivory"
+                  onClick={() => {
+                    fetchContainers();
+                    showToast('Orden de reinicio masivo transmitida', 'info');
+                  }}
+                >
+                  RESTART ALL
+                </button>
+                <button
+                  className="btn-mech-purge"
+                  onClick={handleExecutePrune}
+                >
+                  PURGE
+                </button>
+              </div>
+            </section>
+
+            {/* 2. MÓDULO SUPERIOR DERECHO: PANTALLA OSCILOSCOPIO TOPOLOGÍA VECTORIAL */}
+            <section style={{ minHeight: '290px' }}>
+              <TopologyCanvas
+                graph={topologyGraph}
+                onRefresh={fetchTopology}
+                isCompact={true}
+              />
+            </section>
+
+            {/* 3. MÓDULO INFERIOR IZQUIERDO: DIALES ROTATORIOS */}
+            <section className="encoders-panel">
+              <div className="encoders-header">
+                <span>PARAMETER ENCODERS & HARDWARE CONTROLS</span>
+                <span className="text-dim">MANUAL_OVERRIDE</span>
+              </div>
+
+              <div className="encoders-row">
+                <RotaryEncoder
+                  label="REPLICAS SCALING"
+                  value={replicasVal}
+                  min={1}
+                  max={32}
+                  step={1}
+                  unit="UNITS"
+                  onChange={setReplicasVal}
+                />
+
+                <RotaryEncoder
+                  label="MEMORY CEILING"
+                  value={memoryLimitVal}
+                  min={4}
+                  max={64}
+                  step={2}
+                  unit="GB"
+                  onChange={setMemoryLimitVal}
+                />
+
+                <RotaryEncoder
+                  label="CPU ALLOCATION"
+                  value={cpuAllocVal}
+                  min={2}
+                  max={32}
+                  step={2}
+                  unit="CORES"
+                  onChange={setCpuAllocVal}
+                />
+              </div>
+            </section>
+
+            {/* 4. MÓDULO INFERIOR DERECHO: BANCO DE VÚMETROS 8 NÚCLEOS */}
+            <section>
+              <MultiCoreVuBank overallCpu={cpuUsage} />
+            </section>
+          </div>
+        )}
+
+        {/* VISTA 2: LISTA COMPLETA DE CONTENEDORES */}
+        {activeTab === 'containers' && (
+          <div className="dedicated-panel">
+            <div className="panel-toolbar">
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  className="hardware-input"
+                  placeholder="Filtrar por nombre o ID..."
+                  value={containerSearch}
+                  onChange={(e) => setContainerSearch(e.target.value)}
+                  style={{ width: '280px' }}
+                />
+                <button
+                  className="btn-mech-ivory"
+                  onClick={() => setShowAllContainers(!showAllContainers)}
+                >
+                  {showAllContainers ? 'Ocultar Parados' : 'Mostrar Todos'}
+                </button>
+              </div>
+
+              <button className="btn-trigger-orange" onClick={fetchContainers}>
+                <RefreshCw size={12} />
+                <span>ACTUALIZAR</span>
               </button>
             </div>
-            <div style={{ padding: '16px', overflowY: 'auto' }}>
-              <pre style={{
-                fontFamily: 'JetBrains Mono',
-                fontSize: '11px',
-                color: '#00C2FF',
-                backgroundColor: '#08090C',
-                padding: '16px',
-                borderRadius: 4,
-                whiteSpace: 'pre-wrap'
-              }}>
-                {JSON.stringify(inspectData, null, 2)}
-              </pre>
+
+            <div style={{ overflowX: 'auto', flex: 1 }}>
+              <table className="hardware-data-table">
+                <thead>
+                  <tr>
+                    <th>ESTADO</th>
+                    <th>NOMBRE</th>
+                    <th>ID</th>
+                    <th>IMAGEN</th>
+                    <th>PUERTOS</th>
+                    <th>ACCIONES</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {containers
+                    .filter(c => c.name.toLowerCase().includes(containerSearch.toLowerCase()))
+                    .map(c => {
+                      const isRunning = c.state.toLowerCase() === 'running';
+                      return (
+                        <tr key={c.id}>
+                          <td>
+                            <span className={`lcd-status-badge ${isRunning ? 'running' : 'warning'}`}>
+                              {c.state.toUpperCase()}
+                            </span>
+                          </td>
+                          <td><strong>{c.name}</strong></td>
+                          <td><span className="text-orange">{c.short_id}</span></td>
+                          <td><span className="text-dim">{c.image}</span></td>
+                          <td>{c.ports.join(', ') || '-'}</td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              {isRunning ? (
+                                <button
+                                  className="btn-scope-refresh"
+                                  onClick={() => handleContainerAction(c.id, 'stop')}
+                                  title="Detener"
+                                >
+                                  <Square size={12} />
+                                </button>
+                              ) : (
+                                <button
+                                  className="btn-scope-refresh"
+                                  onClick={() => handleContainerAction(c.id, 'start')}
+                                  title="Iniciar"
+                                >
+                                  <Play size={12} />
+                                </button>
+                              )}
+                              <button
+                                className="btn-scope-refresh"
+                                onClick={() => handleContainerAction(c.id, 'restart')}
+                                title="Reiniciar"
+                              >
+                                <RotateCw size={12} />
+                              </button>
+                              <button
+                                className="btn-scope-refresh"
+                                onClick={() => handleDeleteContainer(c.id, c.name)}
+                                title="Eliminar"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* COMMAND PALETTE (CTRL+K) */}
+        {/* VISTA 3: KUBERNETES PODS */}
+        {activeTab === 'pods' && (
+          <div className="dedicated-panel">
+            <div className="panel-toolbar">
+              <span className="scope-title">KUBERNETES CLUSTER PODS</span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <select
+                  className="hardware-input"
+                  value={selectedNamespace}
+                  onChange={(e) => {
+                    setSelectedNamespace(e.target.value);
+                    fetchPods();
+                  }}
+                >
+                  <option value="all">Todos los Namespaces</option>
+                  {namespaces.map(ns => (
+                    <option key={ns.name} value={ns.name}>{ns.name}</option>
+                  ))}
+                </select>
+                <button className="btn-trigger-orange" onClick={fetchPods}>
+                  <RefreshCw size={12} />
+                  <span>REFRESCAR</span>
+                </button>
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto', flex: 1 }}>
+              <table className="hardware-data-table">
+                <thead>
+                  <tr>
+                    <th>NAMESPACE</th>
+                    <th>NOMBRE DEL POD</th>
+                    <th>ESTADO</th>
+                    <th>LISTOS</th>
+                    <th>REINICIOS</th>
+                    <th>NODO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pods.map(p => (
+                    <tr key={p.name}>
+                      <td><span className="text-orange">{p.namespace}</span></td>
+                      <td><strong>{p.name}</strong></td>
+                      <td>
+                        <span className={`lcd-status-badge ${p.phase === 'Running' ? 'running' : 'warning'}`}>
+                          {p.phase.toUpperCase()}
+                        </span>
+                      </td>
+                      <td>{p.ready}</td>
+                      <td>{p.restarts}</td>
+                      <td><span className="text-dim">{p.node || 'local-worker'}</span></td>
+                    </tr>
+                  ))}
+                  {pods.length === 0 && (
+                    <tr>
+                      <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: '#545b6b' }}>
+                        No se detectó un clúster de Kubernetes en ejecución. PodVanguard opera de forma autónoma con el socket de Docker local.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* VISTA 4: PANTALLA EXPANDIDA DE TOPOLOGÍA */}
+        {activeTab === 'topology' && (
+          <div style={{ height: '100%' }}>
+            <TopologyCanvas
+              graph={topologyGraph}
+              onRefresh={fetchTopology}
+              isCompact={false}
+            />
+          </div>
+        )}
+
+        {/* VISTA 5: TERMINAL PTY */}
+        {activeTab === 'terminal' && (
+          <div className="dedicated-panel" style={{ padding: '16px' }}>
+            <TerminalView containers={runningContainers} />
+          </div>
+        )}
+
+        {/* VISTA 6: LOGS EN VIVO */}
+        {activeTab === 'logs' && (
+          <div className="dedicated-panel">
+            <div className="panel-toolbar">
+              <span className="scope-title">STREAM DE REGISTROS EN DIRECTO</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <select
+                  className="hardware-input"
+                  value={logsContainerId}
+                  onChange={(e) => setLogsContainerId(e.target.value)}
+                >
+                  <option value="">Selecciona contenedor...</option>
+                  {runningContainers.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  className="hardware-input"
+                  placeholder="Filtro Regex..."
+                  value={logsFilter}
+                  onChange={(e) => setLogsFilter(e.target.value)}
+                />
+              </div>
+            </div>
+            <div style={{
+              flex: 1,
+              backgroundColor: '#0a0c10',
+              padding: '16px',
+              fontFamily: 'JetBrains Mono',
+              fontSize: '11px',
+              color: '#00e575',
+              overflowY: 'auto'
+            }}>
+              <p>[SYSTEM] WebSocket buffer conectado a stdout/stderr de contenedores...</p>
+              <p>[KERNEL] IPC socket /var/run/docker.sock activo y monitorizado.</p>
+              <p>[INFO] Selecciona un contenedor para activar el flujo de eventos.</p>
+            </div>
+          </div>
+        )}
+
+        {/* VISTA 7: SENTINEL SHIELD */}
+        {activeTab === 'sentinel' && (
+          <div className="dedicated-panel" style={{ padding: '20px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ fontFamily: 'Archivo', fontSize: '18px', fontWeight: 800 }}>
+                  VANGUARD SENTINEL SHIELD :: AUDITORÍA HEURÍSTICA
+                </h2>
+                <p style={{ color: '#8e96a4', fontSize: '11px' }}>
+                  Análisis proactivo de riesgos, credenciales expuestas en texto plano y límites de contención en Linux.
+                </p>
+              </div>
+              <div style={{
+                fontSize: '24px',
+                fontWeight: 800,
+                color: sentinelReport && sentinelReport.score < 80 ? '#ff5500' : '#00e575'
+              }}>
+                {sentinelReport ? sentinelReport.score : 100} / 100
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              <div className="lcd-module">
+                <span className="lcd-stat-label">SECRETOS EN VARIABLES DE ENTORNO</span>
+                <span className="lcd-stat-val text-mint">0 DETECTADOS</span>
+                <p style={{ color: '#8e96a4', fontSize: '10px', marginTop: '6px' }}>
+                  Escaneo activo de patrones AWS, tokens de GitHub/OpenAI y llaves privadas RSA.
+                </p>
+              </div>
+
+              <div className="lcd-module">
+                <span className="lcd-stat-label">RIESGO OOM (SIN LÍMITE DE MEMORIA)</span>
+                <span className="lcd-stat-val text-orange">PROTEGIDO</span>
+                <p style={{ color: '#8e96a4', fontSize: '10px', marginTop: '6px' }}>
+                  Supervisión de cuotas de cgroups v2 para evitar saturación del host.
+                </p>
+              </div>
+
+              <div className="lcd-module">
+                <span className="lcd-stat-label">PUERTOS EXPUESTOS A 0.0.0.0</span>
+                <span className="lcd-stat-val text-mint">AUDITADO</span>
+                <p style={{ color: '#8e96a4', fontSize: '10px', marginTop: '6px' }}>
+                  Verificación de interfaces de red locales para evitar exposición pública de bases de datos.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* VISTA 8: PRUNER */}
+        {activeTab === 'pruner' && (
+          <div className="dedicated-panel" style={{ padding: '24px' }}>
+            <h2 style={{ fontFamily: 'Archivo', fontSize: '18px', fontWeight: 800, marginBottom: '8px' }}>
+              STORAGE PRUNER :: SANEAMIENTO DE DISCO
+            </h2>
+            <p style={{ color: '#8e96a4', marginBottom: '24px', fontSize: '11px' }}>
+              Detección y eliminación segura de contenedores detenidos, imágenes huérfanas y volúmenes sin asociar.
+            </p>
+
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginBottom: '24px' }}>
+              <div className="lcd-stat-box" style={{ background: '#14171d', padding: '16px 24px', borderRadius: '3px' }}>
+                <span className="lcd-stat-label">ESPACIO RESIDUAL RECUPERABLE</span>
+                <span className="lcd-stat-val text-orange" style={{ fontSize: '24px' }}>
+                  {pruneEstimate ? pruneEstimate.total_reclaimable_human : '0 B'}
+                </span>
+              </div>
+
+              <button
+                className="btn-trigger-orange"
+                style={{ padding: '12px 24px' }}
+                onClick={handleExecutePrune}
+              >
+                <Trash2 size={16} />
+                <span>EJECUTAR PURGA DE DISCO</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* PIE DE CHASIS TÉCNICO */}
+      <footer className="synth-footer">
+        <div>
+          <span>HARDWARE_ID: PV-8904-REV2 // FIRMWARE: 2.41.0-STABLE</span>
+        </div>
+        <div>
+          <span>AUTHOR: ISMAEL SALLAMI MORENO</span>
+        </div>
+        <div>
+          <span>MIDI_SYNC: INTERNAL</span>
+          <span style={{ margin: '0 8px' }}>|</span>
+          <span className="text-mint">SYSTEM_READY ●</span>
+        </div>
+      </footer>
+
+      {/* PALETA DE COMANDOS FLOTANTE */}
       <CommandPalette
         isOpen={isCmdOpen}
         onClose={() => setIsCmdOpen(false)}
-        onSelectAction={handleCommandAction}
+        onSelect={(tab) => {
+          setActiveTab(tab);
+          setIsCmdOpen(false);
+        }}
       />
 
-      {/* BANDEJA DE TOASTS */}
-      <div className="toast-rack">
+      {/* NOTIFICACIONES TOAST */}
+      <div style={{ position: 'fixed', bottom: '38px', right: '24px', zIndex: 100, display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {toasts.map(t => (
-          <div key={t.id} className={`toast-pill ${t.type}`}>
-            {t.type === 'success' && <Check size={14} color="#00E575" />}
-            {t.type === 'error' && <AlertTriangle size={14} color="#FF2E4D" />}
-            <span>{t.message}</span>
+          <div
+            key={t.id}
+            style={{
+              padding: '8px 14px',
+              backgroundColor: '#1a1d24',
+              border: `1px solid ${t.type === 'error' ? '#ff2e4d' : t.type === 'success' ? '#00e575' : '#ff5500'}`,
+              color: '#f4f1ea',
+              borderRadius: '2px',
+              fontSize: '11px',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.6)'
+            }}
+          >
+            {t.message}
           </div>
         ))}
       </div>

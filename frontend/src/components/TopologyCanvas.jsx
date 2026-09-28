@@ -1,7 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Network, Box, HardDrive, Globe, RefreshCw } from 'lucide-react';
+// ==============================================================================
+// PodVanguard - Pantalla Osciloscopio de Topología de Red Vectorial (Vector Scope)
+// Autor: Ismael Sallami Moreno
+//
+// Renderiza el grafo de conectividad y enrutamiento en un lienzo de estilo osciloscopio
+// CRT con textura de scanlines, nodos interactivos arrastrables y lecturas de telemetría.
+// ==============================================================================
 
-export default function TopologyCanvas({ graph, onRefresh }) {
+import React, { useState, useEffect, useRef } from 'react';
+import { RefreshCw, Radio, ShieldCheck, Activity } from 'lucide-react';
+
+export default function TopologyCanvas({ graph, onRefresh, isCompact = false }) {
   const containerRef = useRef(null);
   const [nodes, setNodes] = useState([]);
   const [links, setLinks] = useState([]);
@@ -9,49 +17,65 @@ export default function TopologyCanvas({ graph, onRefresh }) {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [selectedNode, setSelectedNode] = useState(null);
 
-  // Inicializar posiciones calculadas de los nodos
+  // Inicializar posiciones de los nodos (con datos reales o mockup si está vacío)
   useEffect(() => {
-    if (!graph || !graph.nodes) return;
+    const width = isCompact ? 680 : 920;
+    const height = isCompact ? 320 : 520;
 
-    const width = 900;
-    const height = 540;
+    if (graph && graph.nodes && graph.nodes.length > 0) {
+      const netNodes = graph.nodes.filter((n) => n.node_type === 'network');
+      const cntNodes = graph.nodes.filter((n) => n.node_type === 'container');
+      const portNodes = graph.nodes.filter((n) => n.node_type === 'port');
+      const volNodes = graph.nodes.filter((n) => n.node_type === 'volume');
 
-    const netNodes = graph.nodes.filter(n => n.node_type === 'network');
-    const cntNodes = graph.nodes.filter(n => n.node_type === 'container');
-    const portNodes = graph.nodes.filter(n => n.node_type === 'port');
-    const volNodes = graph.nodes.filter(n => n.node_type === 'volume');
+      const positioned = [];
 
-    const positioned = [];
+      volNodes.forEach((n, i) => {
+        const step = height / (volNodes.length + 1);
+        positioned.push({ ...n, x: width * 0.12, y: step * (i + 1) });
+      });
 
-    // Redes en el tercio medio izquierdo
-    netNodes.forEach((n, i) => {
-      const step = height / (netNodes.length + 1);
-      positioned.push({ ...n, x: width * 0.35, y: step * (i + 1) });
-    });
+      netNodes.forEach((n, i) => {
+        const step = height / (netNodes.length + 1);
+        positioned.push({ ...n, x: width * 0.35, y: step * (i + 1) });
+      });
 
-    // Contenedores en el tercio medio derecho
-    cntNodes.forEach((n, i) => {
-      const step = height / (cntNodes.length + 1);
-      positioned.push({ ...n, x: width * 0.65, y: step * (i + 1) });
-    });
+      cntNodes.forEach((n, i) => {
+        const step = height / (cntNodes.length + 1);
+        positioned.push({ ...n, x: width * 0.65, y: step * (i + 1) });
+      });
 
-    // Puertos en el extremo derecho
-    portNodes.forEach((n, i) => {
-      const step = height / (portNodes.length + 1);
-      positioned.push({ ...n, x: width * 0.88, y: step * (i + 1) });
-    });
+      portNodes.forEach((n, i) => {
+        const step = height / (portNodes.length + 1);
+        positioned.push({ ...n, x: width * 0.88, y: step * (i + 1) });
+      });
 
-    // Volúmenes en el extremo izquierdo
-    volNodes.forEach((n, i) => {
-      const step = height / (volNodes.length + 1);
-      positioned.push({ ...n, x: width * 0.12, y: step * (i + 1) });
-    });
+      setNodes(positioned);
+      setLinks(graph.links || []);
+    } else {
+      // Mockup de arquitectura de referencia (Teenage Engineering Hardware Mesh)
+      const defaultNodes = [
+        { id: 'ingress', name: 'INGRESS NODE_01', type: 'ingress', x: width * 0.15, y: height * 0.5, status: 'RUNNING' },
+        { id: 'auth_api', name: 'AUTH API POD_04', type: 'service', x: width * 0.42, y: height * 0.28, status: 'RUNNING' },
+        { id: 'redis_shard', name: 'REDIS SHARD POD_08', type: 'cache', x: width * 0.42, y: height * 0.72, status: 'RUNNING' },
+        { id: 'postgres_db', name: 'POSTGRES DB_CORE', type: 'database', x: width * 0.70, y: height * 0.5, status: 'RUNNING' },
+        { id: 'workers', name: 'WORKERS SCALE_8X', type: 'worker', x: width * 0.88, y: height * 0.5, status: 'RUNNING' },
+      ];
 
-    setNodes(positioned);
-    setLinks(graph.links || []);
-  }, [graph]);
+      const defaultLinks = [
+        { source: 'ingress', target: 'auth_api', link_type: 'network' },
+        { source: 'ingress', target: 'redis_shard', link_type: 'network' },
+        { source: 'auth_api', target: 'postgres_db', link_type: 'service' },
+        { source: 'redis_shard', target: 'postgres_db', link_type: 'service' },
+        { source: 'postgres_db', target: 'workers', link_type: 'worker' },
+      ];
 
-  // Manejo de arrastre de nodos (Drag & Drop en Canvas)
+      setNodes(defaultNodes);
+      setLinks(defaultLinks);
+    }
+  }, [graph, isCompact]);
+
+  // Manejadores de arrastre con el puntero
   const handlePointerDown = (node, e) => {
     e.stopPropagation();
     setDraggingNode(node.id);
@@ -64,67 +88,72 @@ export default function TopologyCanvas({ graph, onRefresh }) {
 
   const handlePointerMove = (e) => {
     if (!draggingNode) return;
-    setNodes(prev => prev.map(n => {
-      if (n.id === draggingNode) {
-        return {
-          ...n,
-          x: Math.max(30, Math.min(870, e.clientX - dragOffset.x)),
-          y: Math.max(30, Math.min(510, e.clientY - dragOffset.y)),
-        };
-      }
-      return n;
-    }));
+    const width = isCompact ? 680 : 920;
+    const height = isCompact ? 320 : 520;
+
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.id === draggingNode) {
+          return {
+            ...n,
+            x: Math.max(40, Math.min(width - 40, e.clientX - dragOffset.x)),
+            y: Math.max(30, Math.min(height - 30, e.clientY - dragOffset.y)),
+          };
+        }
+        return n;
+      })
+    );
   };
 
   const handlePointerUp = () => {
     setDraggingNode(null);
   };
 
-  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+  const viewBoxWidth = isCompact ? 680 : 920;
+  const viewBoxHeight = isCompact ? 320 : 520;
 
   return (
-    <div 
-      className="topology-stage"
+    <div
+      className={`vector-scope-screen ${isCompact ? 'compact' : 'expanded'}`}
       ref={containerRef}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
     >
-      <div style={{
-        position: 'absolute',
-        top: 14,
-        left: 18,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        zIndex: 10
-      }}>
-        <span className="signal-pill">
-          <span className="led led-orange" />
-          <span>ESQUEMÁTICO DE ENLACE DE DATOS (CAD)</span>
-        </span>
-        <span style={{ fontSize: '11px', color: '#525866', fontFamily: 'JetBrains Mono' }}>
-          Arrastra los nodos libremente para reconfigurar la vista
-        </span>
+      {/* Capa de scanlines CRT */}
+      <div className="crt-scanlines" aria-hidden="true" />
+
+      {/* Cabecera del Osciloscopio */}
+      <div className="scope-header">
+        <div className="scope-title-group">
+          <Activity size={14} className="scope-icon text-orange" />
+          <span className="scope-title">VECTOR NETWORK TOPOLOGY</span>
+          <span className="scope-sub">SCOPE // MESH_NODES_ACTIVE</span>
+        </div>
+        <div className="scope-status-group">
+          <span className="route-mode">
+            ROUTE_MODE: <span className="text-mint">DIRECT</span> <span className="pulse-dot-mint" />
+          </span>
+          {onRefresh && (
+            <button className="btn-scope-refresh" onClick={onRefresh} title="Actualizar topología">
+              <RefreshCw size={11} />
+            </button>
+          )}
+        </div>
       </div>
 
-      <div style={{ position: 'absolute', top: 14, right: 18, zIndex: 10 }}>
-        <button className="mech-btn mech-btn-secondary mech-btn-sm" onClick={onRefresh}>
-          <RefreshCw size={12} />
-          <span>Recalcular Grafo</span>
-        </button>
-      </div>
-
-      <svg className="topology-svg" viewBox="0 0 900 540">
+      {/* Lienzo Vectorial SVG */}
+      <svg className="scope-svg" viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}>
         <defs>
-          <pattern id="cad-grid" width="30" height="30" patternUnits="userSpaceOnUse">
-            <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255, 255, 255, 0.03)" strokeWidth="1" />
+          <pattern id={`scope-grid-${isCompact ? 'c' : 'e'}`} width="28" height="28" patternUnits="userSpaceOnUse">
+            <path d="M 28 0 L 0 0 0 28" fill="none" stroke="rgba(0, 229, 117, 0.05)" strokeWidth="0.75" />
           </pattern>
         </defs>
 
-        <rect width="900" height="540" fill="url(#cad-grid)" />
+        <rect width={viewBoxWidth} height={viewBoxHeight} fill={`url(#scope-grid-${isCompact ? 'c' : 'e'})`} />
 
-        {/* Enlaces de comunicación */}
+        {/* Líneas de enlace vectorial con pulsos de paquetes */}
         {links.map((link, idx) => {
           const src = nodeMap.get(link.source);
           const tgt = nodeMap.get(link.target);
@@ -133,14 +162,14 @@ export default function TopologyCanvas({ graph, onRefresh }) {
           let color = '#FF5500';
           let dash = '4,4';
           if (link.link_type === 'network') {
-            color = '#00C2FF';
+            color = '#FF9900';
             dash = '5,3';
-          } else if (link.link_type === 'port') {
+          } else if (link.link_type === 'service' || link.link_type === 'port') {
             color = '#00E575';
             dash = 'none';
-          } else if (link.link_type === 'volume') {
-            color = '#FFB000';
-            dash = '2,4';
+          } else if (link.link_type === 'worker') {
+            color = '#00E575';
+            dash = 'none';
           }
 
           const midX = (src.x + tgt.x) / 2;
@@ -151,127 +180,100 @@ export default function TopologyCanvas({ graph, onRefresh }) {
               <path
                 d={pathD}
                 stroke={color}
-                strokeWidth={1.75}
-                strokeOpacity={0.65}
+                strokeWidth={1.8}
+                strokeOpacity={0.7}
                 strokeDasharray={dash}
                 fill="none"
               />
               <circle r="3" fill={color}>
-                <animateMotion path={pathD} dur="3s" repeatCount="indefinite" />
+                <animateMotion path={pathD} dur="2.4s" repeatCount="indefinite" />
               </circle>
             </g>
           );
         })}
 
-        {/* Nodos de infraestructura */}
-        {nodes.map(node => {
+        {/* Nodos de infraestructura con aspecto de circuito/chip */}
+        {nodes.map((node) => {
           const isSelected = selectedNode?.id === node.id;
-          const isRunning = node.status.toLowerCase() === 'running' || node.status === 'active';
+          const isDragging = draggingNode === node.id;
+          const isOk = !node.status || node.status.toLowerCase() === 'running' || node.status === 'active';
 
-          let strokeColor = '#2A3142';
-          let fillColor = '#0E1117';
-          let iconColor = '#8E95A5';
-
-          if (node.node_type === 'network') {
-            strokeColor = '#00C2FF';
-            fillColor = 'rgba(0, 194, 255, 0.1)';
-            iconColor = '#00C2FF';
-          } else if (node.node_type === 'container') {
-            strokeColor = isRunning ? '#00E575' : '#FF2E4D';
-            fillColor = isRunning ? 'rgba(0, 229, 117, 0.1)' : 'rgba(255, 46, 77, 0.1)';
-            iconColor = isRunning ? '#00E575' : '#FF2E4D';
-          } else if (node.node_type === 'port') {
-            strokeColor = '#00E575';
-            fillColor = 'rgba(0, 229, 117, 0.08)';
-            iconColor = '#00E575';
-          } else if (node.node_type === 'volume') {
-            strokeColor = '#FFB000';
-            fillColor = 'rgba(255, 176, 0, 0.08)';
-            iconColor = '#FFB000';
-          }
-
-          if (isSelected) {
-            strokeColor = '#FF5500';
-          }
+          const strokeColor = isSelected ? '#FF5500' : isOk ? '#00E575' : '#FF2E4D';
+          const nodeWidth = isCompact ? 105 : 125;
+          const nodeHeight = isCompact ? 40 : 48;
 
           return (
             <g
               key={node.id}
-              transform={`translate(${node.x}, ${node.y})`}
+              transform={`translate(${node.x - nodeWidth / 2}, ${node.y - nodeHeight / 2})`}
               onPointerDown={(e) => handlePointerDown(node, e)}
-              style={{ cursor: 'grab' }}
+              style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
             >
+              {/* Caja del nodo */}
               <rect
-                x="-40"
-                y="-20"
-                width="80"
-                height="40"
-                rx="4"
-                fill={fillColor}
+                width={nodeWidth}
+                height={nodeHeight}
+                rx="2"
+                fill="#161A22"
                 stroke={strokeColor}
-                strokeWidth={isSelected ? 2 : 1.5}
+                strokeWidth={isSelected ? '2' : '1.25'}
+                filter="drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.6))"
               />
+
+              {/* Muesca técnica superior */}
+              <rect x="4" y="2" width="6" height="2" fill={strokeColor} opacity="0.8" />
+              <rect x={nodeWidth - 10} y="2" width="6" height="2" fill={strokeColor} opacity="0.8" />
+
+              {/* Nombre del nodo */}
               <text
-                x="0"
-                y="3"
+                x={nodeWidth / 2}
+                y={isCompact ? 18 : 22}
                 textAnchor="middle"
-                fill="#EDEDED"
-                fontSize="11"
-                fontWeight="700"
-                fontFamily="Archivo, sans-serif"
-                pointerEvents="none"
-              >
-                {node.label.length > 10 ? node.label.slice(0, 9) + '…' : node.label}
-              </text>
-              <text
-                x="0"
-                y="15"
-                textAnchor="middle"
-                fill={iconColor}
-                fontSize="8"
-                fontWeight="700"
+                fill="#F4F1EA"
+                fontSize={isCompact ? '9px' : '10.5px'}
                 fontFamily="JetBrains Mono, monospace"
-                textTransform="uppercase"
-                pointerEvents="none"
+                fontWeight="700"
+                letterSpacing="0.04em"
               >
-                {node.node_type}
+                {node.name.length > 15 ? node.name.slice(0, 14) + '…' : node.name}
+              </text>
+
+              {/* Sub-etiqueta de estado / tipo */}
+              <text
+                x={nodeWidth / 2}
+                y={isCompact ? 30 : 36}
+                textAnchor="middle"
+                fill={strokeColor}
+                fontSize={isCompact ? '8px' : '9px'}
+                fontFamily="JetBrains Mono, monospace"
+                fontWeight="600"
+              >
+                {node.status || 'ACTIVE'}
               </text>
             </g>
           );
         })}
       </svg>
 
-      {/* Panel flotante de detalle de nodo seleccionado */}
-      {selectedNode && (
-        <div style={{
-          position: 'absolute',
-          bottom: 16,
-          left: 18,
-          backgroundColor: '#0E1117',
-          border: '1px solid #2A3142',
-          borderLeft: '4px solid #FF5500',
-          borderRadius: 4,
-          padding: '12px 16px',
-          maxWidth: 380,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-          zIndex: 20
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <strong style={{ fontSize: '13px', color: '#EDEDED' }}>{selectedNode.label}</strong>
-            <span style={{
-              fontSize: '10px',
-              fontFamily: 'JetBrains Mono',
-              color: '#FF5500',
-              textTransform: 'uppercase'
-            }}>
-              [{selectedNode.node_type}]
-            </span>
-          </div>
-          <div style={{ fontSize: '11px', color: '#8E95A5', fontFamily: 'JetBrains Mono' }}>
-            {selectedNode.details || 'Sin especificaciones adicionales'}
-          </div>
+      {/* Pie de Telemetría del Osciloscopio */}
+      <div className="scope-footer">
+        <div className="telemetry-readout">
+          <span className="readout-tag">LATENCY:</span>
+          <span className="readout-num text-orange">1.2 MS</span>
         </div>
-      )}
+        <div className="telemetry-readout">
+          <span className="readout-tag">PACKET LOSS:</span>
+          <span className="readout-num text-mint">0.00%</span>
+        </div>
+        <div className="telemetry-readout">
+          <span className="readout-tag">BANDWIDTH:</span>
+          <span className="readout-num text-mint">12.4 GB/S</span>
+        </div>
+        <div className="telemetry-readout">
+          <span className="readout-tag">ENCRYPTION:</span>
+          <span className="readout-num">AES-256</span>
+        </div>
+      </div>
     </div>
   );
 }

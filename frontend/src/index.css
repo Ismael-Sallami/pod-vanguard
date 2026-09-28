@@ -1,40 +1,39 @@
 /* ==============================================================================
-   PodVanguard - Estética Teenage Engineering / Brutalismo Suizo
-   Paleta: Carbón Mate (#08090C) & Naranja Seguridad (#FF5500)
+   PodVanguard - Estética de Sintetizador Hardware (Teenage Engineering & Braun)
+   Chasis: Aluminio Anodizado Pizarra (#24272E) | Acentos: Safety Orange (#FF5500)
+   Displays: Ámbar LCD (#FFB000) & Fósforo Menta (#00E575)
    Autor: Ismael Sallami Moreno
    ============================================================================== */
 
 :root {
-  --bg-base: #08090c;
-  --bg-panel: #0e1117;
-  --bg-panel-raised: #151922;
-  --bg-panel-inset: #0a0c10;
-  --border-dim: #1d222e;
-  --border-strong: #2a3142;
-  --border-accent: #ff5500;
+  --chassis-bg: #1e2128;
+  --chassis-surface: #262a33;
+  --chassis-inset: #14171d;
+  --chassis-border: #323844;
+  --chassis-bevel: #414958;
 
-  --text-primary: #ededed;
-  --text-muted: #8e95a5;
-  --text-dim: #4d5464;
+  --lcd-bg: #141107;
+  --lcd-text: #ffb000;
+  --lcd-dim: #735105;
+  --lcd-border: #3d2f0d;
+
+  --scope-bg: #0c1014;
+  --scope-line: #00e575;
+  --scope-border: #1b262f;
 
   --orange: #ff5500;
-  --orange-subtle: rgba(255, 85, 0, 0.12);
-  --orange-glow: rgba(255, 85, 0, 0.35);
-
-  --green: #00e575;
-  --green-subtle: rgba(0, 229, 117, 0.12);
-
-  --amber: #ffb000;
-  --amber-subtle: rgba(255, 176, 0, 0.12);
-
+  --orange-glow: rgba(255, 85, 0, 0.4);
+  --mint: #00e575;
+  --mint-glow: rgba(0, 229, 117, 0.35);
+  --ivory: #f4f1ea;
   --red: #ff2e4d;
-  --red-subtle: rgba(255, 46, 77, 0.12);
 
-  --cyan: #00c2ff;
-  --cyan-subtle: rgba(0, 194, 255, 0.12);
+  --text-main: #f4f1ea;
+  --text-muted: #8e96a4;
+  --text-dim: #545b6b;
 
-  --font-sans: 'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-mono: 'JetBrains Mono', 'Courier Prime', monospace;
+  --font-display: 'Archivo', 'Space Grotesk', sans-serif;
 }
 
 * {
@@ -44,620 +43,789 @@
 }
 
 body {
-  background-color: var(--bg-base);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.5;
-  letter-spacing: -0.01em;
+  background-color: #121418;
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
   overflow: hidden;
   height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
 
-/* LAYOUT PRINCIPAL TIPO RACK HARDWARE */
-.app-container {
+/* ===================== CONTENEDOR DEL CHASIS HARDWARE ===================== */
+.synth-chassis {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background-color: var(--bg-base);
+  background-color: var(--chassis-bg);
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.04) 0%, transparent 60%),
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+  border: 4px solid #14161b;
   position: relative;
-}
-
-/* CHOPPER / SIDEBAR */
-.sidebar {
-  width: 260px;
-  min-width: 260px;
-  background-color: var(--bg-panel);
-  border-right: 1px solid var(--border-dim);
-  display: flex;
-  flex-direction: column;
   user-select: none;
-  z-index: 20;
 }
 
-.sidebar-header {
-  padding: 20px 18px 16px 18px;
-  border-bottom: 1px solid var(--border-dim);
+/* Tornillos de montaje industrial en las 4 esquinas */
+.chassis-screw {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #555d6d, #21242c 70%);
+  border: 1px solid #14171d;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), 0 1px 2px rgba(0, 0, 0, 0.8);
+  z-index: 50;
+  pointer-events: none;
+}
+.chassis-screw::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 3px;
+  width: 8px;
+  height: 2px;
+  background-color: #111317;
+  transform: rotate(35deg);
+}
+.screw-tl { top: 8px; left: 8px; }
+.screw-tr { top: 8px; right: 8px; }
+.screw-bl { bottom: 8px; left: 8px; }
+.screw-br { bottom: 8px; right: 8px; }
+
+/* ===================== FRANJA SUPERIOR DE CONTROL ===================== */
+.synth-topbar {
+  height: 52px;
+  min-height: 52px;
+  background: linear-gradient(180deg, #2a2e37 0%, #1e222a 100%);
+  border-bottom: 2px solid #14171d;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  gap: 16px;
+  z-index: 30;
 }
 
-.brand-wrapper {
+.brand-section {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.brand-glyph {
-  width: 32px;
-  height: 32px;
-  background-color: var(--orange);
-  color: #000;
+.brand-logo-badge {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-weight: 900;
-  font-size: 15px;
-  border-radius: 4px;
-  box-shadow: 0 0 16px var(--orange-glow);
+  gap: 6px;
+  padding: 3px 8px;
+  background-color: var(--chassis-inset);
+  border: 1px solid var(--chassis-border);
+  border-radius: 2px;
 }
 
-.brand-title {
-  font-size: 15px;
+.brand-text-hardware {
+  font-family: var(--font-display);
+  font-size: 14px;
   font-weight: 900;
   letter-spacing: 0.08em;
-  color: var(--text-primary);
-  text-transform: uppercase;
+  color: var(--ivory);
 }
 
-.brand-sub {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--text-dim);
-  letter-spacing: 0.18em;
-}
-
-.kicker-label {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--text-dim);
-  padding: 14px 18px 6px 18px;
-}
-
-.nav-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 0 10px;
-  flex: 1;
-  overflow-y: auto;
-}
-
-.nav-btn {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 9px 12px;
-  border-radius: 4px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition: all 0.08s ease;
-  width: 100%;
-  text-align: left;
-}
-
-.nav-btn:hover {
-  background-color: var(--bg-panel-raised);
-  color: var(--text-primary);
-  border-color: var(--border-dim);
-}
-
-.nav-btn.active {
-  background-color: var(--orange-subtle);
-  border-color: rgba(255, 85, 0, 0.4);
-  color: var(--orange);
-  font-weight: 700;
-}
-
-.nav-btn.active svg {
-  color: var(--orange);
-}
-
-.nav-badge {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 2px;
-  background-color: var(--bg-panel-inset);
-  border: 1px solid var(--border-dim);
-  color: var(--text-muted);
-}
-
-.sidebar-footer {
-  padding: 14px 16px;
-  border-top: 1px solid var(--border-dim);
-  background-color: var(--bg-panel-inset);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.meta-engineer {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-primary);
-  display: flex;
-  justify-content: space-between;
-}
-
-.meta-sys {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-dim);
-  display: flex;
-  justify-content: space-between;
-}
-
-/* ÁREA DE CONTENIDO PRINCIPAL */
-.main-stage {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background-color: var(--bg-base);
-}
-
-/* HEADER MECÁNICO CON MEDIDORES LED */
-.hardware-bar {
-  height: 60px;
-  min-height: 60px;
-  background-color: var(--bg-panel);
-  border-bottom: 1px solid var(--border-dim);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-}
-
-.hardware-title-group {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.hardware-page-title {
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  text-transform: uppercase;
-}
-
-.signal-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 3px;
-  background-color: var(--bg-panel-inset);
-  border: 1px solid var(--border-dim);
-}
-
-.led {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.led-green { background-color: var(--green); box-shadow: 0 0 8px var(--green); }
-.led-amber { background-color: var(--amber); box-shadow: 0 0 8px var(--amber); }
-.led-red { background-color: var(--red); box-shadow: 0 0 8px var(--red); }
-.led-orange { background-color: var(--orange); box-shadow: 0 0 8px var(--orange); }
-
-.hardware-telemetry-group {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
-
-/* MEDIDOR VU SEGMENTADO EN 10 BLOQUES LED */
-.vu-meter {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  width: 130px;
-}
-
-.vu-meta {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 10px;
-}
-
-.vu-label { color: var(--text-dim); text-transform: uppercase; }
-.vu-val { font-weight: 700; color: var(--text-primary); }
-
-.vu-led-track {
-  display: flex;
-  gap: 2px;
-  height: 8px;
-  background-color: var(--bg-panel-inset);
-  padding: 1px;
-  border-radius: 2px;
-  border: 1px solid var(--border-dim);
-}
-
-.vu-segment {
-  flex: 1;
-  background-color: rgba(255, 255, 255, 0.06);
-  border-radius: 1px;
-  transition: background-color 0.1s ease;
-}
-
-.vu-segment.lit-green { background-color: var(--green); box-shadow: 0 0 4px var(--green); }
-.vu-segment.lit-amber { background-color: var(--amber); box-shadow: 0 0 4px var(--amber); }
-.vu-segment.lit-orange { background-color: var(--orange); box-shadow: 0 0 4px var(--orange); }
-.vu-segment.lit-red { background-color: var(--red); box-shadow: 0 0 4px var(--red); }
-
-/* BOTÓN TÁCTIL MECÁNICO (TEENAGE ENGINEERING FEEL) */
-.mech-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 7px 14px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  border: 1px solid transparent;
-  user-select: none;
-  transition: all 0.05s ease;
-  box-shadow: 0 2px 0 var(--border-dim);
-}
-
-.mech-btn:active {
-  transform: translateY(2px);
-  box-shadow: 0 0 0 transparent !important;
-}
-
-.mech-btn-primary {
-  background-color: var(--orange);
-  color: #000;
-  border-color: #ff661a;
-  box-shadow: 0 2px 0 #cc4400;
-}
-.mech-btn-primary:hover {
-  background-color: #ff661a;
-}
-
-.mech-btn-secondary {
-  background-color: var(--bg-panel-raised);
-  color: var(--text-primary);
-  border-color: var(--border-strong);
-  box-shadow: 0 2px 0 var(--border-dim);
-}
-.mech-btn-secondary:hover {
-  background-color: #1e2432;
-}
-
-.mech-btn-danger {
-  background-color: var(--red);
-  color: #fff;
-  border-color: #ff4763;
-  box-shadow: 0 2px 0 #cc1f38;
-}
-.mech-btn-danger:hover {
-  background-color: #ff4763;
-}
-
-.mech-btn-sm {
-  padding: 4px 8px;
-  font-size: 11px;
-}
-
-/* ÁREA DE TRABAJO SCROLLABLE */
-.workbench {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-}
-
-/* PANEL Y MÓDULOS DE RACK */
-.rack-card {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-dim);
-  border-radius: 6px;
-  overflow: hidden;
-  margin-bottom: 20px;
-}
-
-.rack-card-header {
-  padding: 14px 18px;
-  background-color: var(--bg-panel-inset);
-  border-bottom: 1px solid var(--border-dim);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.rack-card-header h3 {
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.rack-card-body {
-  padding: 18px;
-}
-
-/* GRID DE MÉTRICAS RÁPIDAS */
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-@media (max-width: 1100px) {
-  .metrics-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.metric-cell {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-dim);
-  border-radius: 6px;
-  padding: 16px;
-  position: relative;
-  overflow: hidden;
-}
-
-.metric-cell-tag {
-  font-family: var(--font-mono);
+.brand-sub-stencil {
   font-size: 9px;
   color: var(--text-dim);
-  text-transform: uppercase;
   letter-spacing: 0.12em;
 }
 
-.metric-cell-val {
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  margin: 6px 0 2px 0;
-  font-family: var(--font-mono);
+/* Selector de pestañas de hardware */
+.hw-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--chassis-inset);
+  padding: 3px;
+  border-radius: 3px;
+  border: 1px solid var(--chassis-border);
 }
 
-.metric-cell-foot {
-  font-size: 11px;
+.hw-tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 5px 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.08s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hw-tab-btn:hover {
+  color: var(--ivory);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.hw-tab-btn.active {
+  background-color: var(--orange);
+  color: #000;
+  font-weight: 800;
+  border-color: var(--orange);
+  box-shadow: 0 0 10px var(--orange-glow);
+}
+
+.hw-tab-btn.active .tab-badge {
+  background-color: #000;
+  color: var(--orange);
+}
+
+.tab-badge {
+  font-size: 9px;
+  padding: 0 4px;
+  border-radius: 2px;
+  background-color: rgba(255, 255, 255, 0.08);
   color: var(--text-muted);
 }
 
-/* TABLAS MECÁNICAS DE ALTA DENSIDAD */
-.table-rack {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  font-size: 12px;
+/* Interruptores y disparadores de hardware */
+.hw-action-strip {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
-.table-rack th {
-  background-color: var(--bg-panel-inset);
-  color: var(--text-dim);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
+.toggle-switch-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-label {
+  font-size: 9px;
+  font-weight: 700;
   letter-spacing: 0.08em;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border-dim);
+  color: var(--text-dim);
 }
 
-.table-rack td {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border-dim);
-  color: var(--text-primary);
-  vertical-align: middle;
+.physical-toggle {
+  width: 38px;
+  height: 20px;
+  background-color: var(--chassis-inset);
+  border: 1px solid var(--chassis-border);
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
 }
 
-.table-rack tbody tr:hover {
-  background-color: rgba(255, 255, 255, 0.02);
+.toggle-slider {
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(180deg, #e4e0d7 0%, #a8a49c 100%);
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
-/* TERMINAL TIPO CRT HARDWARE */
-.term-box {
-  background-color: #030406;
-  border: 1px solid var(--border-dim);
-  border-radius: 6px;
+.physical-toggle.on .toggle-slider {
+  transform: translateX(18px);
+  background: linear-gradient(180deg, #00ff88 0%, #00b355 100%);
+  box-shadow: 0 0 8px var(--mint-glow);
+}
+
+.btn-trigger-orange {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background-color: var(--orange);
+  color: #000;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid #ff7733;
+  border-radius: 2px;
+  cursor: pointer;
+  box-shadow: 0 2px 0 #aa3900, 0 0 12px var(--orange-glow);
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+
+.btn-trigger-orange:active {
+  transform: translateY(2px);
+  box-shadow: 0 0 4px var(--orange-glow);
+}
+
+/* ===================== ÁREA DE TRABAJO PRINCIPAL ===================== */
+.synth-stage {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 160px);
+  overflow-y: auto;
+  padding: 16px 28px 24px 28px;
+  gap: 16px;
 }
 
-.term-topbar {
-  padding: 10px 14px;
-  background-color: var(--bg-panel-inset);
-  border-bottom: 1px solid var(--border-dim);
+/* Layout en cuadrícula para el Panel General (Overview) */
+.overview-grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  grid-template-rows: auto auto;
+  gap: 16px;
+  flex: 1;
+}
+
+/* ===================== MÓDULO 1: DISPLAY LCD ÁMBAR ===================== */
+.lcd-module {
+  background-color: var(--chassis-surface);
+  border: 1px solid var(--chassis-border);
+  border-radius: 3px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: inset 0 1px 0 var(--chassis-bevel), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.lcd-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
 }
 
-.term-body {
+.lcd-screen-amber {
+  background-color: var(--lcd-bg);
+  border: 2px solid var(--lcd-border);
+  border-radius: 2px;
+  padding: 12px;
+  color: var(--lcd-text);
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.8), inset 0 0 4px rgba(255, 176, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.lcd-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.lcd-table th {
+  text-align: left;
+  font-size: 9px;
+  color: var(--lcd-dim);
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--lcd-dim);
+}
+
+.lcd-table td {
+  padding: 6px 0;
+  border-bottom: 1px dotted rgba(255, 176, 0, 0.15);
+}
+
+.lcd-table tr:last-child td {
+  border-bottom: none;
+}
+
+.lcd-status-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 2px;
+  border: 1px solid currentColor;
+}
+.lcd-status-badge.running { color: var(--mint); }
+.lcd-status-badge.warning { color: var(--orange); }
+
+.lcd-stats-row {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px dashed var(--lcd-dim);
+}
+
+.lcd-stat-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.lcd-stat-label {
+  font-size: 9px;
+  color: var(--lcd-dim);
+}
+
+.lcd-stat-val {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--lcd-text);
+}
+
+.lcd-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn-mech-ivory {
   flex: 1;
-  padding: 16px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: #00e575;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
-  line-height: 1.45;
+  background-color: var(--ivory);
+  color: #1a1d24;
+  border: 1px solid #dcd7ca;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  box-shadow: 0 2px 0 #aba595;
+  transition: transform 0.05s ease;
+}
+.btn-mech-ivory:active {
+  transform: translateY(2px);
+  box-shadow: none;
 }
 
-.term-input-row {
-  border-top: 1px solid var(--border-dim);
+.btn-mech-purge {
+  background-color: rgba(255, 85, 0, 0.15);
+  color: var(--orange);
+  border: 1px solid var(--orange);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+/* ===================== MÓDULO 2: OSCILOSCOPIO VECTORIAL ===================== */
+.vector-scope-screen {
+  background-color: var(--scope-bg);
+  border: 3px solid var(--scope-border);
+  border-radius: 3px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.9), 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+.vector-scope-screen.compact {
+  height: 290px;
+}
+.vector-scope-screen.expanded {
+  height: 600px;
+}
+
+.crt-scanlines {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.25) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.scope-header {
+  height: 34px;
+  padding: 0 14px;
+  background-color: rgba(12, 16, 20, 0.85);
+  border-bottom: 1px solid var(--scope-border);
   display: flex;
   align-items: center;
-  background-color: var(--bg-panel-inset);
-  padding: 6px 12px;
+  justify-content: space-between;
+  z-index: 12;
 }
 
-.term-prompt {
-  font-family: var(--font-mono);
-  color: var(--orange);
-  font-weight: 700;
-  margin-right: 8px;
+.scope-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.term-input {
-  flex: 1;
+.scope-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--ivory);
+}
+
+.scope-sub {
+  font-size: 9px;
+  color: var(--mint);
+  opacity: 0.85;
+}
+
+.scope-status-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+.pulse-dot-mint {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--mint);
+  box-shadow: 0 0 6px var(--mint);
+  animation: pulse-ring 1.8s infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.5; }
+  100% { transform: scale(0.9); opacity: 1; }
+}
+
+.btn-scope-refresh {
   background: transparent;
-  border: none;
-  outline: none;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: #ededed;
+  border: 1px solid var(--scope-border);
+  color: var(--text-muted);
+  padding: 3px 6px;
+  border-radius: 2px;
+  cursor: pointer;
 }
 
-/* COMMAND PALETTE (CTRL+K) */
-.cmd-palette-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
-  z-index: 10000;
+.scope-svg {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+}
+
+.scope-footer {
+  height: 30px;
+  padding: 0 14px;
+  background-color: rgba(12, 16, 20, 0.9);
+  border-top: 1px solid var(--scope-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 9px;
+  z-index: 12;
+}
+
+.telemetry-readout {
+  display: flex;
+  gap: 6px;
+}
+.readout-tag { color: var(--text-dim); }
+.readout-num { font-weight: 700; color: var(--ivory); }
+
+/* ===================== MÓDULO 3: DIALES ROTATORIOS ===================== */
+.encoders-panel {
+  background-color: var(--chassis-surface);
+  border: 1px solid var(--chassis-border);
+  border-radius: 3px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: inset 0 1px 0 var(--chassis-bevel);
+}
+
+.encoders-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.encoders-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 20px;
+}
+
+.rotary-encoder-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.encoder-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.rotary-dial {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #3e4452, #181b22 80%);
+  border: 2px solid #14171d;
+  box-shadow: 
+    0 4px 10px rgba(0, 0, 0, 0.7),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: ns-resize;
+  position: relative;
+  transition: box-shadow 0.1s ease;
+}
+
+.rotary-dial:hover,
+.rotary-dial.dragging {
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.9),
+    0 0 8px var(--orange-glow);
+}
+
+.dial-cap {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #2a2e38 60%, #1c1f26 100%);
+  border: 1px solid #363c48;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dial-pointer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 12vh;
+  pointer-events: none;
 }
 
-.cmd-palette-modal {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  width: 90%;
-  max-width: 620px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9);
-  overflow: hidden;
-  animation: scaleDown 0.1s ease-out;
+.dial-notch {
+  width: 3px;
+  height: 10px;
+  background-color: var(--orange);
+  border-radius: 1px;
+  margin-top: 3px;
+  box-shadow: 0 0 4px var(--orange-glow);
 }
 
-@keyframes scaleDown {
-  from { opacity: 0; transform: scale(0.97); }
-  to { opacity: 1; transform: scale(1); }
+.encoder-readout {
+  padding: 2px 10px;
+  background-color: var(--chassis-inset);
+  border: 1px solid var(--chassis-border);
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--ivory);
 }
 
-.cmd-search-input {
-  width: 100%;
-  background-color: var(--bg-panel-inset);
-  border: none;
-  border-bottom: 1px solid var(--border-dim);
-  padding: 16px 20px;
-  font-size: 15px;
-  font-family: var(--font-sans);
-  color: var(--text-primary);
-  outline: none;
-}
-
-.cmd-results-list {
-  max-height: 340px;
-  overflow-y: auto;
-  padding: 8px;
-}
-
-.cmd-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--text-muted);
-  font-size: 13px;
-  transition: all 0.08s ease;
-}
-
-.cmd-item:hover, .cmd-item.selected {
-  background-color: var(--orange-subtle);
+.readout-unit {
+  font-size: 9px;
   color: var(--orange);
 }
 
-.cmd-shortcut {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  background-color: var(--bg-panel-inset);
-  border: 1px solid var(--border-dim);
-  padding: 2px 6px;
+/* ===================== MÓDULO 4: BANCO DE VÚMETROS 8 NÚCLEOS ===================== */
+.multicore-vu-bank {
+  background-color: var(--chassis-surface);
+  border: 1px solid var(--chassis-border);
   border-radius: 3px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: inset 0 1px 0 var(--chassis-bevel);
+}
+
+.vu-bank-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   color: var(--text-dim);
 }
 
-/* TOPOLOGÍA INTERACTIVA (CAD DE INGENIERÍA) */
-.topology-stage {
-  height: calc(100vh - 160px);
-  background: radial-gradient(circle at center, #10141d 0%, #06080b 100%);
-  border: 1px solid var(--border-dim);
-  border-radius: 6px;
-  position: relative;
-  overflow: hidden;
+.vu-bank-chip {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--mint);
+  padding: 1px 6px;
+  background-color: rgba(0, 229, 117, 0.1);
+  border-radius: 2px;
 }
 
-.topology-svg {
-  width: 100%;
-  height: 100%;
+.core-ladders-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  background-color: var(--chassis-inset);
+  padding: 14px 16px 10px 16px;
+  border: 1px solid var(--chassis-border);
+  border-radius: 2px;
 }
 
-/* TOASTS NOTIFICACIONES */
-.toast-rack {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
+.core-ladder-column {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  z-index: 9999;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
 }
 
-.toast-pill {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-strong);
-  border-left: 4px solid var(--orange);
-  padding: 10px 16px;
-  border-radius: 4px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
-  font-size: 12px;
-  font-weight: 600;
+.ladder-segments {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+
+.ladder-seg {
+  height: 8px;
+  width: 100%;
+  border-radius: 1px;
+}
+
+.ladder-seg.seg-off {
+  background-color: #1b1e25;
+  border: 1px solid #14171d;
+}
+
+.ladder-seg.seg-mint {
+  background-color: var(--mint);
+  box-shadow: 0 0 6px var(--mint-glow);
+}
+
+.ladder-seg.seg-orange {
+  background-color: var(--orange);
+  box-shadow: 0 0 6px var(--orange-glow);
+}
+
+.core-index {
+  font-size: 9px;
+  color: var(--text-dim);
+  font-weight: 700;
+}
+
+.vu-bank-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.peak-readout { color: var(--orange); }
+.status-readout { color: var(--mint); }
+
+/* ===================== PIE DE CHASIS TÉCNICO ===================== */
+.synth-footer {
+  height: 28px;
+  min-height: 28px;
+  background-color: #171920;
+  border-top: 1px solid #14171d;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  padding: 0 32px;
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
 }
 
-.toast-pill.success { border-left-color: var(--green); }
-.toast-pill.error { border-left-color: var(--red); }
+/* ===================== VISTAS DEDICADAS (TABLAS, TERMINAL, LOGS) ===================== */
+.dedicated-panel {
+  background-color: var(--chassis-surface);
+  border: 1px solid var(--chassis-border);
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 var(--chassis-bevel);
+}
+
+.panel-toolbar {
+  padding: 12px 18px;
+  background-color: #21252d;
+  border-bottom: 1px solid var(--chassis-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hardware-input {
+  background-color: var(--chassis-inset);
+  border: 1px solid var(--chassis-border);
+  border-radius: 2px;
+  padding: 6px 10px;
+  color: var(--ivory);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.hardware-input:focus {
+  outline: none;
+  border-color: var(--orange);
+  box-shadow: 0 0 6px var(--orange-glow);
+}
+
+.hardware-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.hardware-data-table th {
+  text-align: left;
+  padding: 10px 14px;
+  background-color: #191c23;
+  color: var(--text-dim);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--chassis-border);
+}
+
+.hardware-data-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  color: var(--text-main);
+}
+
+.hardware-data-table tr:hover td {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Colores de ayuda */
+.text-orange { color: var(--orange); }
+.text-mint { color: var(--mint); }
+.text-ivory { color: var(--ivory); }
+.text-dim { color: var(--text-dim); }
