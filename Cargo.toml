@@ -1,0 +1,29 @@
+[package]
+name = "pod-vanguard"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ismael Sallami Moreno <ismEngineer23@gmail.com>"]
+description = "Centro de Mando Web de Alto Rendimiento para Contenedores & Pods en Linux"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/Ismael-Sallami/pod-vanguard"
+
+[dependencies]
+tokio = { version = "1.40", features = ["full"] }
+axum = { version = "0.7", features = ["ws"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+bollard = "0.18"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+futures-util = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
+include_dir = "0.7"
+regex = "1.10"
+sysinfo = "0.31"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

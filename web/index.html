@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PodVanguard :: Centro de Mando Web para Contenedores & Pods</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230f172a'/><path d='M25 70 L50 25 L75 70 Z' fill='none' stroke='%2306b6d4' stroke-width='8'/><circle cx='50' cy='52' r='8' fill='%2310b981'/></svg>">
+</head>
+<body class="bg-dark text-light antialiased">
+  <div class="app-layout">
+    <!-- BARRA LATERAL (SIDEBAR) -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">POD<span class="text-cyan">VANGUARD</span></span>
+          <span class="brand-sub">CONTROL PLANE</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="overview">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Panel General</span>
+        </button>
+
+        <button class="nav-item" data-tab="containers">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          <span>Contenedores</span>
+          <span class="badge badge-sm" id="badge-containers-count">0</span>
+        </button>
+
+        <button class="nav-item" data-tab="pods">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/><circle cx="12" cy="12" r="4"/></svg>
+          <span>Kubernetes Pods</span>
+          <span class="badge badge-sm badge-violet" id="badge-pods-count">0</span>
+        </button>
+
+        <button class="nav-item" data-tab="terminal">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          <span>Terminal Web</span>
+        </button>
+
+        <button class="nav-item" data-tab="logs">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span>Logs en Vivo</span>
+        </button>
+
+        <button class="nav-item" data-tab="topology">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><circle cx="6" cy="18" r="3"/><line x1="9" y1="6" x2="21" y2="6"/><line x1="6" y1="9" x2="6" y2="15"/><line x1="8.5" y1="15.5" x2="15.5" y2="8.5"/></svg>
+          <span>Topología Red</span>
+        </button>
+
+        <button class="nav-item" data-tab="sentinel">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Sentinel Shield</span>
+          <span class="badge badge-sm badge-emerald" id="badge-sentinel-score">100</span>
+        </button>
+
+        <button class="nav-item" data-tab="pruner">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          <span>Pruner Disco</span>
+        </button>
+
+        <button class="nav-item" data-tab="images">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span>Imágenes</span>
+        </button>
+
+        <button class="nav-item" data-tab="volumes">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+          <span>Volúmenes</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="author-tag">
+          <span class="author-label">Desarrollado por</span>
+          <span class="author-name">Ismael Sallami Moreno</span>
+        </div>
+        <div class="system-meta">
+          <span id="meta-kernel">Linux x86_64</span>
+          <span class="version-tag">v0.1.0</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL -->
+    <main class="main-content">
+      <!-- HEADER SUPERIOR DE TELEMETRÍA -->
+      <header class="top-header">
+        <div class="header-left">
+          <h1 class="page-title" id="current-view-title">Panel General</h1>
+          <div class="cluster-badges">
+            <div class="status-indicator" id="docker-status-pill">
+              <span class="dot dot-emerald"></span>
+              <span class="label">Docker: Conectado</span>
+            </div>
+            <div class="status-indicator" id="k8s-status-pill">
+              <span class="dot dot-violet"></span>
+              <span class="label" id="k8s-status-label">K8s: Detectando...</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <!-- MEDIDOR CPU HOST -->
+          <div class="metric-meter">
+            <div class="meter-info">
+              <span class="meter-label">CPU Host</span>
+              <span class="meter-val" id="telemetry-cpu-val">0.0%</span>
+            </div>
+            <div class="meter-bar-track">
+              <div class="meter-bar-fill bg-cyan" id="telemetry-cpu-bar" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- MEDIDOR RAM HOST -->
+          <div class="metric-meter">
+            <div class="meter-info">
+              <span class="meter-label">RAM Host</span>
+              <span class="meter-val" id="telemetry-mem-val">0.0%</span>
+            </div>
+            <div class="meter-bar-track">
+              <div class="meter-bar-fill bg-emerald" id="telemetry-mem-bar" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <button class="btn btn-secondary btn-icon" id="btn-refresh" title="Actualizar datos">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- CONTENEDOR DE VISTAS (TAB PANELS) -->
+      <div class="view-viewport">
+        <!-- 1. VISTA: PANEL GENERAL (OVERVIEW) -->
+        <section class="tab-view active" id="view-overview">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon bg-cyan-subtle">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              </div>
+              <div class="stat-data">
+                <span class="stat-title">Contenedores Activos</span>
+                <span class="stat-number" id="overview-running-containers">0</span>
+                <span class="stat-footnote" id="overview-total-containers">Total: 0</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon bg-violet-subtle">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><circle cx="12" cy="12" r="4"/></svg>
+              </div>
+              <div class="stat-data">
+                <span class="stat-title">Kubernetes Pods</span>
+                <span class="stat-number" id="overview-k8s-pods">0</span>
+                <span class="stat-footnote" id="overview-k8s-namespaces">0 Espacios de nombres</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon bg-emerald-subtle">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div class="stat-data">
+                <span class="stat-title">Sentinel Shield</span>
+                <span class="stat-number text-emerald" id="overview-security-score">100/100</span>
+                <span class="stat-footnote" id="overview-security-status">0 Hallazgos críticos</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon bg-amber-subtle">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+              </div>
+              <div class="stat-data">
+                <span class="stat-title">Espacio Recuperable</span>
+                <span class="stat-number text-amber" id="overview-reclaimable">0 B</span>
+                <span class="stat-footnote" id="overview-reclaimable-items">Imágenes y volúmenes huérfanos</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- FILA DE RESUMEN: CONTENEDORES ACTIVOS Y TOPOLOGÍA RÁPIDA -->
+          <div class="dashboard-columns">
+            <div class="card dashboard-card">
+              <div class="card-header">
+                <h3>Contenedores en Ejecución Reciente</h3>
+                <button class="btn btn-sm btn-outline" data-jump-tab="containers">Ver Todos</button>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-container">
+                  <table class="data-table" id="overview-containers-table">
+                    <thead>
+                      <tr>
+                        <th>Estado</th>
+                        <th>Nombre</th>
+                        <th>Imagen</th>
+                        <th>Puertos</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody id="overview-containers-tbody">
+                      <tr><td colspan="5" class="text-center text-muted">Cargando estado...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="card dashboard-card">
+              <div class="card-header">
+                <h3>Vanguard Sentinel Shield - Estado de Seguridad</h3>
+                <button class="btn btn-sm btn-outline" data-jump-tab="sentinel">Auditoría Completa</button>
+              </div>
+              <div class="card-body">
+                <div class="security-overview-box">
+                  <div class="score-circle-wrapper">
+                    <div class="score-circle" id="sentinel-score-circle">100</div>
+                    <span class="score-legend">Nivel de Postura</span>
+                  </div>
+                  <div class="score-breakdown">
+                    <div class="breakdown-item text-rose">
+                      <span class="b-label">Críticos:</span>
+                      <strong id="sentinel-crit-count">0</strong>
+                    </div>
+                    <div class="breakdown-item text-amber">
+                      <span class="b-label">Advertencias:</span>
+                      <strong id="sentinel-warn-count">0</strong>
+                    </div>
+                    <div class="breakdown-item text-cyan">
+                      <span class="b-label">Informativos:</span>
+                      <strong id="sentinel-info-count">0</strong>
+                    </div>
+                  </div>
+                </div>
+                <div id="overview-sentinel-quick-findings" class="quick-findings-list">
+                  <p class="text-muted text-sm">No se han detectado brechas de seguridad críticas.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. VISTA: CONTENEDORES (DOCKER) -->
+        <section class="tab-view" id="view-containers">
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <input type="text" class="input input-search" id="container-search-input" placeholder="Filtrar por nombre, ID o imagen...">
+              <label class="checkbox-label">
+                <input type="checkbox" id="chk-show-all-containers" checked>
+                <span>Mostrar detenidos</span>
+              </label>
+            </div>
+            <div class="toolbar-right">
+              <button class="btn btn-primary" id="btn-refresh-containers">Refrescar</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="table-container">
+              <table class="data-table" id="containers-table">
+                <thead>
+                  <tr>
+                    <th>Estado</th>
+                    <th>Nombre</th>
+                    <th>ID Corto</th>
+                    <th>Imagen</th>
+                    <th>Puertos Expuestos</th>
+                    <th>Estado Docker</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="containers-tbody">
+                  <tr><td colspan="7" class="text-center text-muted">Cargando lista de contenedores...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. VISTA: KUBERNETES PODS -->
+        <section class="tab-view" id="view-pods">
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <select class="select" id="k8s-namespace-select">
+                <option value="all">Todos los Namespaces</option>
+              </select>
+              <input type="text" class="input input-search" id="k8s-search-input" placeholder="Buscar pod...">
+            </div>
+            <div class="toolbar-right">
+              <button class="btn btn-primary" id="btn-refresh-pods">Refrescar Clúster</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="table-container">
+              <table class="data-table" id="pods-table">
+                <thead>
+                  <tr>
+                    <th>Namespace</th>
+                    <th>Nombre Pod</th>
+                    <th>Estado</th>
+                    <th>Contenedores</th>
+                    <th>Reinicios</th>
+                    <th>Nodo</th>
+                    <th>IP Pod</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="pods-tbody">
+                  <tr><td colspan="8" class="text-center text-muted">Consultando clúster Kubernetes...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. VISTA: TERMINAL WEB (XTERM) -->
+        <section class="tab-view" id="view-terminal">
+          <div class="terminal-container-panel">
+            <div class="terminal-toolbar">
+              <div class="term-selector">
+                <label for="terminal-container-select">Contenedor:</label>
+                <select class="select" id="terminal-container-select">
+                  <option value="">Selecciona un contenedor en ejecución...</option>
+                </select>
+              </div>
+              <div class="term-status-box">
+                <span class="status-indicator">
+                  <span class="dot dot-amber" id="term-status-dot"></span>
+                  <span id="term-status-text">Desconectado</span>
+                </span>
+                <button class="btn btn-sm btn-outline" id="btn-connect-terminal">Conectar Shell</button>
+                <button class="btn btn-sm btn-secondary" id="btn-clear-terminal">Limpiar</button>
+              </div>
+            </div>
+            <div class="terminal-screen" id="terminal-wrapper">
+              <div class="terminal-mockup-output" id="terminal-output">
+                <span class="text-cyan">PodVanguard Terminal Interactivo v0.1.0</span><br>
+                <span class="text-muted">Selecciona un contenedor en el desplegable superior y pulsa 'Conectar Shell'.</span><br>
+                <span class="text-muted">Soporta emulación de escape ANSI completa, tabulación y redimensionamiento de PTY.</span>
+              </div>
+              <input type="text" class="terminal-inline-input" id="terminal-input" placeholder="Escribe comando y pulsa Enter..." autocomplete="off">
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. VISTA: LOGS EN VIVO -->
+        <section class="tab-view" id="view-logs">
+          <div class="logs-container-panel">
+            <div class="logs-toolbar">
+              <div class="logs-selector">
+                <label for="logs-container-select">Contenedor:</label>
+                <select class="select" id="logs-container-select">
+                  <option value="">Selecciona un contenedor...</option>
+                </select>
+              </div>
+              <div class="logs-filter-group">
+                <input type="text" class="input" id="logs-filter-input" placeholder="Filtrar logs con Regex o texto...">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="chk-logs-autoscroll" checked>
+                  <span>Auto-scroll</span>
+                </label>
+                <button class="btn btn-sm btn-secondary" id="btn-clear-logs">Limpiar</button>
+              </div>
+            </div>
+            <div class="logs-screen" id="logs-output-window">
+              <div class="text-muted">Esperando selección de contenedor para transmitir logs en tiempo real...</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6. VISTA: TOPOLOGÍA DE RED -->
+        <section class="tab-view" id="view-topology">
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <span class="text-muted text-sm">Mapa interactivo de redes virtuales, contenedores, puertos y volúmenes.</span>
+            </div>
+            <div class="toolbar-right">
+              <button class="btn btn-primary" id="btn-refresh-topology">Recalcular Grafo</button>
+            </div>
+          </div>
+          <div class="card topology-canvas-card">
+            <div id="topology-canvas-container" class="topology-container">
+              <!-- Renderizado SVG reactivo de nodos y aristas -->
+              <svg id="topology-svg" width="100%" height="600"></svg>
+            </div>
+          </div>
+        </section>
+
+        <!-- 7. VISTA: SENTINEL SHIELD -->
+        <section class="tab-view" id="view-sentinel">
+          <div class="sentinel-header-banner">
+            <div class="sentinel-score-banner">
+              <div class="score-display">
+                <span class="score-num" id="shield-score-val">100</span>
+                <span class="score-total">/100</span>
+              </div>
+              <div class="score-desc">
+                <h3>Vanguard Sentinel Security Engine</h3>
+                <p>Auditoría heurística estricta: credenciales expuestas en texto plano, privilegios excesivos de root, puertos de base de datos abiertos a 0.0.0.0 y límites de recursos OOM.</p>
+              </div>
+            </div>
+            <div class="sentinel-actions">
+              <button class="btn btn-primary" id="btn-rescan-sentinel">Ejecutar Análisis Profundo</button>
+            </div>
+          </div>
+
+          <div class="card mt-4">
+            <div class="card-header">
+              <h3>Hallazgos y Remedaciones Recomendadas</h3>
+            </div>
+            <div class="card-body">
+              <div class="findings-list" id="sentinel-findings-container">
+                <div class="text-center text-muted py-4">Iniciando auditoría heurística...</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 8. VISTA: PRUNER (LIMPIEZA DE DISCO) -->
+        <section class="tab-view" id="view-pruner">
+          <div class="pruner-hero card">
+            <div class="pruner-hero-content">
+              <div>
+                <h2>Motor de Poda y Recuperación de Espacio</h2>
+                <p class="text-muted">Libera gigabytes de almacenamiento eliminando de forma segura contenedores detenidos, imágenes huérfanas (dangling) y volúmenes sin dependencias.</p>
+              </div>
+              <div class="pruner-hero-metric">
+                <span class="hero-metric-label">Espacio Recuperable Estimado</span>
+                <span class="hero-metric-value text-amber" id="pruner-reclaimable-total">Calculando...</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pruner-breakdown-grid mt-4">
+            <div class="card pruner-item-card">
+              <div class="pruner-card-header">
+                <h4>Contenedores Detenidos</h4>
+                <span class="badge" id="pruner-cnt-count">0</span>
+              </div>
+              <div class="pruner-card-body">
+                <span class="pruner-size" id="pruner-cnt-size">0 B</span>
+                <p class="text-sm text-muted">Contenedores parados que retienen capas de escritura en el disco.</p>
+              </div>
+            </div>
+
+            <div class="card pruner-item-card">
+              <div class="pruner-card-header">
+                <h4>Imágenes Huérfanas (Dangling)</h4>
+                <span class="badge" id="pruner-img-count">0</span>
+              </div>
+              <div class="pruner-card-body">
+                <span class="pruner-size" id="pruner-img-size">0 B</span>
+                <p class="text-sm text-muted">Capas intermedias sin etiquetas de repositorios activos.</p>
+              </div>
+            </div>
+
+            <div class="card pruner-item-card">
+              <div class="pruner-card-header">
+                <h4>Volúmenes Desconectados</h4>
+                <span class="badge" id="pruner-vol-count">0</span>
+              </div>
+              <div class="pruner-card-body">
+                <span class="pruner-size" id="pruner-vol-size">0 B</span>
+                <p class="text-sm text-muted">Almacenamientos locales huérfanos sin contenedores asignados.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="pruner-action-box card mt-4">
+            <div class="pruner-action-flex">
+              <div>
+                <h3>Ejecutar Saneamiento del Host</h3>
+                <p class="text-muted text-sm">Esta operación purgará todos los recursos no asociados. Los contenedores en ejecución no se verán afectados.</p>
+              </div>
+              <button class="btn btn-danger btn-lg" id="btn-execute-prune">Ejecutar Purga de Almacenamiento</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 9. VISTA: IMÁGENES -->
+        <section class="tab-view" id="view-images">
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <input type="text" class="input input-search" id="images-search-input" placeholder="Buscar imagen...">
+            </div>
+            <div class="toolbar-right">
+              <button class="btn btn-primary" id="btn-refresh-images">Refrescar Imágenes</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-container">
+              <table class="data-table" id="images-table">
+                <thead>
+                  <tr>
+                    <th>Etiquetas del Repositorio</th>
+                    <th>ID de Imagen</th>
+                    <th>Tamaño en Disco</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="images-tbody">
+                  <tr><td colspan="4" class="text-center text-muted">Cargando imágenes de Docker...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 10. VISTA: VOLÚMENES -->
+        <section class="tab-view" id="view-volumes">
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <input type="text" class="input input-search" id="volumes-search-input" placeholder="Buscar volumen...">
+            </div>
+            <div class="toolbar-right">
+              <button class="btn btn-primary" id="btn-refresh-volumes">Refrescar Volúmenes</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-container">
+              <table class="data-table" id="volumes-table">
+                <thead>
+                  <tr>
+                    <th>Nombre de Volumen</th>
+                    <th>Driver</th>
+                    <th>Ámbito</th>
+                    <th>Punto de Montaje en Host</th>
+                  </tr>
+                </thead>
+                <tbody id="volumes-tbody">
+                  <tr><td colspan="4" class="text-center text-muted">Cargando volúmenes persistentes...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL DE INSPECCIÓN DETALLADA DE CONTENEDOR -->
+  <div class="modal-backdrop" id="modal-inspect" style="display: none;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 id="inspect-modal-title">Inspección de Contenedor</h3>
+        <button class="btn-close" id="btn-close-inspect-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <pre class="json-code" id="inspect-modal-content">Cargando detalles...</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENEDOR DE NOTIFICACIONES TOAST -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- SCRIPT CONTROLADOR REACTIVO -->
+  <script src="/app.js"></script>
+</body>
+</html>
