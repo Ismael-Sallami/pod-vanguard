@@ -1,6 +1,6 @@
 // ==============================================================================
 // PodVanguard - Sentinel Shield for Containers & Pods
-// Autor: Ismael Sallami Moreno <ismEngineer23@gmail.com>
+// Autor: Ismael Sallami Moreno
 // Motor de auditoría heurística y análisis proactivo de seguridad para contenedores.
 // Detecta secretos en variables de entorno, banderas privilegiadas, ejecución como root,
 // puertos expuestos en 0.0.0.0 y ausencia de cuotas de recursos (riesgo OOM).

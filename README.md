@@ -3,7 +3,7 @@
 Centro de Mando Web de Alto Rendimiento para Contenedores & Pods en Linux.  
 Desarrollado en Rust con arquitectura de binario estático autocontenido y panel reactivo embebido.
 
-Autor: Ismael Sallami Moreno (ismEngineer23@gmail.com)  
+Autor: Ismael Sallami Moreno  
 Licencia: MIT  
 Repositorio: https://github.com/Ismael-Sallami/pod-vanguard  
 
@@ -156,5 +156,5 @@ OPCIONES:
 
 ## 7. Autor y Licencia
 
-Proyecto disenado e implementado por Ismael Sallami Moreno (ismEngineer23@gmail.com).  
+Proyecto disenado e implementado por Ismael Sallami Moreno.  
 Distribuido bajo los terminos de la Licencia MIT.

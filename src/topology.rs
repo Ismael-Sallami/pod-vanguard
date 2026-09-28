@@ -1,6 +1,6 @@
 // ==============================================================================
 // PodVanguard - Generador de Topología de Red y Arquitectura de Contenedores
-// Autor: Ismael Sallami Moreno <ismEngineer23@gmail.com>
+// Autor: Ismael Sallami Moreno
 //
 // Este módulo construye un grafo interactivo de nodos y aristas (Node-Link Graph)
 // que representa la topología viva de la infraestructura local:

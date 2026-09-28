@@ -1,6 +1,6 @@
 // ==============================================================================
 // PodVanguard - Motor de Inspección y Conectividad con Kubernetes (K8s)
-// Autor: Ismael Sallami Moreno <ismEngineer23@gmail.com>
+// Autor: Ismael Sallami Moreno
 //
 // Este módulo gestiona la detección e interacción con clústeres Kubernetes locales
 // o remotos (Minikube, K3s, Kind, MicroK8s, EKS, GKE, etc.).

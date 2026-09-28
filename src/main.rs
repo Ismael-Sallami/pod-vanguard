@@ -1,6 +1,6 @@
 // ==============================================================================
 // PodVanguard - Centro de Mando Web de Alto Rendimiento para Contenedores & Pods
-// Autor: Ismael Sallami Moreno <ismEngineer23@gmail.com>
+// Autor: Ismael Sallami Moreno
 //
 // Punto de entrada del ejecutable. Realiza la comprobación estricta de plataforma
 // Linux, procesa los argumentos de línea de comandos, inicializa los motores de
@@ -34,7 +34,7 @@ fn print_help() {
     println!(
         r#"
 PodVanguard {} - Centro de Mando Web para Contenedores y Pods en Linux
-Autor: Ismael Sallami Moreno <ismEngineer23@gmail.com>
+Autor: Ismael Sallami Moreno
 
 USO:
     pod-vanguard [OPCIONES]

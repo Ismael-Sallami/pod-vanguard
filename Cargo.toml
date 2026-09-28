@@ -2,7 +2,7 @@
 name = "pod-vanguard"
 version = "0.1.0"
 edition = "2021"
-authors = ["Ismael Sallami Moreno <ismEngineer23@gmail.com>"]
+authors = ["Ismael Sallami Moreno"]
 description = "Centro de Mando Web de Alto Rendimiento para Contenedores & Pods en Linux"
 license = "MIT"
 readme = "README.md"

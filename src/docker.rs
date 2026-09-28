@@ -1,6 +1,6 @@
 // ==============================================================================
 // PodVanguard - Motor de Interacción con Docker / Podman API
-// Autor: Ismael Sallami Moreno <ismEngineer23@gmail.com>
+// Autor: Ismael Sallami Moreno
 //
 // Este módulo encapsula la comunicación asíncrona mediante sockets UNIX con el
 // demonio de Docker (/var/run/docker.sock) o Podman. Proporciona abstracciones

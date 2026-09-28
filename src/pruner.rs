@@ -1,6 +1,6 @@
 // ==============================================================================
 // PodVanguard - Motor de Limpieza Inteligente de Disco (Pruner)
-// Autor: Ismael Sallami Moreno <ismEngineer23@gmail.com>
+// Autor: Ismael Sallami Moreno
 //
 // Este módulo analiza el consumo de almacenamiento residual en el subsistema de
 // contenedores: capas huérfanas, imágenes sin etiquetar (dangling), volúmenes

@@ -1,6 +1,6 @@
 // ==============================================================================
 // PodVanguard - Controlador Reactivo de Interfaz Web (Frontend SPA)
-// Autor: Ismael Sallami Moreno <ismEngineer23@gmail.com>
+// Autor: Ismael Sallami Moreno
 //
 // Este script orquesta la lógica del cliente web: navegación entre paneles,
 // sincronización REST, túneles WebSocket para terminal TTY y logs continuos,

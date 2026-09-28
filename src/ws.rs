@@ -1,6 +1,6 @@
 // ==============================================================================
 // PodVanguard - Motor de WebSockets en Tiempo Real (Terminal PTY, Logs, Métricas)
-// Autor: Ismael Sallami Moreno <ismEngineer23@gmail.com>
+// Autor: Ismael Sallami Moreno
 //
 // Este módulo gestiona los canales bidireccionales WebSocket sobre Axum:
 // 1. Terminal interactivo en vivo conectando un frontend Xterm.js con un contenedor

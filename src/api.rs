@@ -1,6 +1,6 @@
 // ==============================================================================
 // PodVanguard - Enrutador API REST y Servidor de Activos Embebidos
-// Autor: Ismael Sallami Moreno <ismEngineer23@gmail.com>
+// Autor: Ismael Sallami Moreno
 //
 // Este módulo define los endpoints REST bajo el prefijo /api, los túneles WebSocket
 // bajo /ws, y el middleware de entrega de activos estáticos embebidos en el binario

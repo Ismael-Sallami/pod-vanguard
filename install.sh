@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # PodVanguard - Instalador Oficial Automatizado para Linux
-# Autor: Ismael Sallami Moreno <ismEngineer23@gmail.com>
+# Autor: Ismael Sallami Moreno
 # Repositorio: https://github.com/Ismael-Sallami/pod-vanguard
 # ==============================================================================
 
