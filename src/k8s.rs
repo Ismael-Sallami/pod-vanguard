@@ -48,6 +48,36 @@ pub struct NamespaceSummary {
     pub age: String,
 }
 
+/// Condición individual de salud y presión de un nodo Kubernetes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeConditionSummary {
+    pub condition_type: String, // "Ready", "MemoryPressure", "DiskPressure", "PIDPressure"
+    pub status: String,         // "True", "False"
+    pub reason: String,
+    pub message: String,
+}
+
+/// Resumen arquitectónico y telemetría de un Nodo del clúster Kubernetes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeSummary {
+    pub name: String,
+    pub status: String,                  // "Ready", "NotReady", "Unknown"
+    pub roles: Vec<String>,              // ["control-plane", "worker", "master"]
+    pub internal_ip: String,
+    pub hostname: String,
+    pub os_image: String,
+    pub kernel_version: String,
+    pub container_runtime: String,
+    pub kubelet_version: String,
+    pub architecture: String,
+    pub cpu_capacity: String,
+    pub memory_capacity: String,
+    pub pods_capacity: usize,
+    pub allocated_pods_count: usize,
+    pub pod_cidr: String,
+    pub conditions: Vec<NodeConditionSummary>,
+}
+
 /// Gestor de Kubernetes para PodVanguard.
 #[derive(Clone, Default)]
 pub struct K8sEngine;
@@ -333,5 +363,307 @@ impl K8sEngine {
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    }
+
+    /// Lista los nodos del clúster Kubernetes con su arquitectura detallada,
+    /// métricas de capacidad, condiciones de salud y pods asignados.
+    pub async fn list_nodes(&self) -> Result<Vec<NodeSummary>, String> {
+        let output = Command::new("kubectl")
+            .args(["get", "nodes", "-o", "json"])
+            .output()
+            .await
+            .map_err(|e| format!("Error ejecutando kubectl get nodes: {}", e))?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Error en respuesta de kubectl get nodes: {}", err));
+        }
+
+        let json_val: serde_json::Value = serde_json::from_slice(&output.stdout)
+            .map_err(|e| format!("Error parseando JSON de nodos: {}", e))?;
+
+        // Obtenemos todos los pods del clúster para calcular la carga asignada a cada nodo
+        let all_pods = self.list_pods("").await.unwrap_or_default();
+
+        Ok(Self::parse_nodes_json(&json_val, &all_pods))
+    }
+
+    /// Parsea la respuesta JSON estructurada de `kubectl get nodes -o json` a una lista de `NodeSummary`.
+    /// Desacoplado como función pura para permitir pruebas unitarias deterministas sin requerir un clúster vivo.
+    pub fn parse_nodes_json(json_val: &serde_json::Value, all_pods: &[PodSummary]) -> Vec<NodeSummary> {
+        let items = json_val
+            .get("items")
+            .and_then(|i| i.as_array())
+            .cloned()
+            .unwrap_or_default();
+
+        let mut nodes = Vec::new();
+
+        for item in items {
+            let metadata = item.get("metadata");
+            let name = metadata
+                .and_then(|m| m.get("name"))
+                .and_then(|n| n.as_str())
+                .unwrap_or("nodo-desconocido")
+                .to_string();
+
+            // Extracción de roles desde las etiquetas (labels)
+            let mut roles = Vec::new();
+            if let Some(labels) = metadata.and_then(|m| m.get("labels")).and_then(|l| l.as_object()) {
+                for key in labels.keys() {
+                    if let Some(role) = key.strip_prefix("node-role.kubernetes.io/") {
+                        roles.push(role.to_string());
+                    }
+                }
+            }
+            if roles.is_empty() {
+                roles.push("worker".to_string());
+            }
+
+            let status_obj = item.get("status");
+            let spec_obj = item.get("spec");
+
+            // Direcciones IP y Hostname
+            let mut internal_ip = "-".to_string();
+            let mut hostname = name.clone();
+            if let Some(addresses) = status_obj.and_then(|s| s.get("addresses")).and_then(|a| a.as_array()) {
+                for addr in addresses {
+                    let addr_type = addr.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                    let addr_val = addr.get("address").and_then(|a| a.as_str()).unwrap_or("");
+                    if addr_type == "InternalIP" && internal_ip == "-" {
+                        internal_ip = addr_val.to_string();
+                    } else if addr_type == "Hostname" {
+                        hostname = addr_val.to_string();
+                    }
+                }
+            }
+
+            // Información del sistema del nodo
+            let node_info = status_obj.and_then(|s| s.get("nodeInfo"));
+            let architecture = node_info
+                .and_then(|ni| ni.get("architecture"))
+                .and_then(|a| a.as_str())
+                .unwrap_or("linux/amd64")
+                .to_string();
+            let container_runtime = node_info
+                .and_then(|ni| ni.get("containerRuntimeVersion"))
+                .and_then(|cr| cr.as_str())
+                .unwrap_or("containerd")
+                .to_string();
+            let kernel_version = node_info
+                .and_then(|ni| ni.get("kernelVersion"))
+                .and_then(|kv| kv.as_str())
+                .unwrap_or("-")
+                .to_string();
+            let kubelet_version = node_info
+                .and_then(|ni| ni.get("kubeletVersion"))
+                .and_then(|kv| kv.as_str())
+                .unwrap_or("-")
+                .to_string();
+            let os_image = node_info
+                .and_then(|ni| ni.get("osImage"))
+                .and_then(|oi| oi.as_str())
+                .unwrap_or("Linux")
+                .to_string();
+
+            // Capacidades de CPU, Memoria y Pods
+            let capacity = status_obj.and_then(|s| s.get("capacity"));
+            let cpu_capacity = capacity
+                .and_then(|c| c.get("cpu"))
+                .and_then(|cpu| cpu.as_str())
+                .unwrap_or("0")
+                .to_string();
+
+            let raw_mem = capacity
+                .and_then(|c| c.get("memory"))
+                .and_then(|m| m.as_str())
+                .unwrap_or("0Ki");
+
+            let memory_capacity = if let Some(stripped) = raw_mem.strip_suffix("Ki") {
+                if let Ok(ki) = stripped.parse::<f64>() {
+                    let gb = ki / (1024.0 * 1024.0);
+                    format!("{:.1} GB", gb)
+                } else {
+                    raw_mem.to_string()
+                }
+            } else {
+                raw_mem.to_string()
+            };
+
+            let pods_capacity = capacity
+                .and_then(|c| c.get("pods"))
+                .and_then(|p| p.as_str())
+                .and_then(|p| p.parse::<usize>().ok())
+                .unwrap_or(110);
+
+            // Condiciones de salud (Ready, MemoryPressure, DiskPressure, PIDPressure)
+            let mut node_status = "Unknown".to_string();
+            let mut conditions = Vec::new();
+
+            if let Some(conds) = status_obj.and_then(|s| s.get("conditions")).and_then(|c| c.as_array()) {
+                for cond in conds {
+                    let c_type = cond.get("type").and_then(|t| t.as_str()).unwrap_or("").to_string();
+                    let c_status = cond.get("status").and_then(|s| s.as_str()).unwrap_or("").to_string();
+                    let c_reason = cond.get("reason").and_then(|r| r.as_str()).unwrap_or("").to_string();
+                    let c_msg = cond.get("message").and_then(|m| m.as_str()).unwrap_or("").to_string();
+
+                    if c_type == "Ready" {
+                        node_status = if c_status == "True" {
+                            "Ready".to_string()
+                        } else {
+                            "NotReady".to_string()
+                        };
+                    }
+
+                    conditions.push(NodeConditionSummary {
+                        condition_type: c_type,
+                        status: c_status,
+                        reason: c_reason,
+                        message: c_msg,
+                    });
+                }
+            }
+
+            // Conteo de pods asignados a este nodo
+            let allocated_pods_count = all_pods
+                .iter()
+                .filter(|p| p.node == name || p.node == hostname)
+                .count();
+
+            // CIDR de pods del nodo
+            let pod_cidr = spec_obj
+                .and_then(|s| s.get("podCIDR"))
+                .and_then(|c| c.as_str())
+                .unwrap_or("-")
+                .to_string();
+
+            nodes.push(NodeSummary {
+                name,
+                status: node_status,
+                roles,
+                internal_ip,
+                hostname,
+                os_image,
+                kernel_version,
+                container_runtime,
+                kubelet_version,
+                architecture,
+                cpu_capacity,
+                memory_capacity,
+                pods_capacity,
+                allocated_pods_count,
+                pod_cidr,
+                conditions,
+            });
+        }
+
+        nodes
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_nodes_json_structure() {
+        let raw_json = serde_json::json!({
+            "items": [
+                {
+                    "metadata": {
+                        "name": "worker-node-01",
+                        "labels": {
+                            "node-role.kubernetes.io/worker": "",
+                            "kubernetes.io/hostname": "worker-node-01"
+                        }
+                    },
+                    "spec": {
+                        "podCIDR": "10.42.1.0/24"
+                    },
+                    "status": {
+                        "addresses": [
+                            {"type": "InternalIP", "address": "192.168.1.101"},
+                            {"type": "Hostname", "address": "worker-node-01"}
+                        ],
+                        "capacity": {
+                            "cpu": "8",
+                            "memory": "16777216Ki", // 16 GB
+                            "pods": "110"
+                        },
+                        "conditions": [
+                            {
+                                "type": "Ready",
+                                "status": "True",
+                                "reason": "KubeletReady",
+                                "message": "kubelet is posting ready status"
+                            }
+                        ],
+                        "nodeInfo": {
+                            "architecture": "amd64",
+                            "containerRuntimeVersion": "containerd://1.7.13",
+                            "kernelVersion": "6.8.0-45-generic",
+                            "kubeletVersion": "v1.30.2+k3s1",
+                            "osImage": "Ubuntu 24.04 LTS"
+                        }
+                    }
+                }
+            ]
+        });
+
+        let pods = vec![
+            PodSummary {
+                name: "api-gw-1".to_string(),
+                namespace: "default".to_string(),
+                status: "Running".to_string(),
+                ready_containers: "1/1".to_string(),
+                restarts: 0,
+                age: "2d".to_string(),
+                node: "worker-node-01".to_string(),
+                ip: "10.42.1.15".to_string(),
+                cpu_request: None,
+                memory_request: None,
+            },
+            PodSummary {
+                name: "cache-redis-1".to_string(),
+                namespace: "default".to_string(),
+                status: "Running".to_string(),
+                ready_containers: "1/1".to_string(),
+                restarts: 0,
+                age: "2d".to_string(),
+                node: "worker-node-01".to_string(),
+                ip: "10.42.1.16".to_string(),
+                cpu_request: None,
+                memory_request: None,
+            },
+            PodSummary {
+                name: "other-pod".to_string(),
+                namespace: "default".to_string(),
+                status: "Running".to_string(),
+                ready_containers: "1/1".to_string(),
+                restarts: 0,
+                age: "1d".to_string(),
+                node: "control-plane-01".to_string(),
+                ip: "10.42.0.5".to_string(),
+                cpu_request: None,
+                memory_request: None,
+            },
+        ];
+
+        let nodes = K8sEngine::parse_nodes_json(&raw_json, &pods);
+        assert_eq!(nodes.len(), 1);
+
+        let node = &nodes[0];
+        assert_eq!(node.name, "worker-node-01");
+        assert_eq!(node.status, "Ready");
+        assert_eq!(node.roles, vec!["worker"]);
+        assert_eq!(node.internal_ip, "192.168.1.101");
+        assert_eq!(node.cpu_capacity, "8");
+        assert_eq!(node.memory_capacity, "16.0 GB");
+        assert_eq!(node.pods_capacity, 110);
+        assert_eq!(node.allocated_pods_count, 2);
+        assert_eq!(node.pod_cidr, "10.42.1.0/24");
+        assert_eq!(node.container_runtime, "containerd://1.7.13");
+        assert_eq!(node.conditions.len(), 1);
+        assert_eq!(node.conditions[0].condition_type, "Ready");
     }
 }

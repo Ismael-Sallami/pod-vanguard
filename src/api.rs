@@ -22,7 +22,7 @@ use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::docker::{ContainerDetail, ContainerStats, ContainerSummary, DockerEngine, ImageSummary, NetworkSummary, VolumeSummary};
-use crate::k8s::{K8sClusterStatus, K8sEngine, NamespaceSummary, PodSummary};
+use crate::k8s::{K8sClusterStatus, K8sEngine, NamespaceSummary, NodeSummary, PodSummary};
 use crate::pruner::{DiskReclaimEstimate, PruneExecutionReport, PrunerEngine};
 use crate::sentinel::{audit_containers, ContainerSecurityContext, SentinelAuditReport};
 use crate::topology::{TopologyEngine, TopologyGraph};
@@ -100,6 +100,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/docker/networks", get(list_networks))
         // API de Kubernetes
         .route("/api/k8s/status", get(get_k8s_status))
+        .route("/api/k8s/nodes", get(list_k8s_nodes))
         .route("/api/k8s/pods", get(list_k8s_pods))
         .route("/api/k8s/namespaces", get(list_k8s_namespaces))
         .route("/api/k8s/pods/:namespace/:name/logs", get(get_k8s_pod_logs))
@@ -297,28 +298,27 @@ async fn get_k8s_status(State(state): State<AppState>) -> Json<K8sClusterStatus>
     Json(status)
 }
 
+async fn list_k8s_nodes(
+    State(state): State<AppState>,
+) -> Json<Vec<NodeSummary>> {
+    let nodes = state.k8s.list_nodes().await.unwrap_or_default();
+    Json(nodes)
+}
+
 async fn list_k8s_pods(
     State(state): State<AppState>,
     Query(query): Query<ListFilterQuery>,
-) -> Result<Json<Vec<PodSummary>>, (StatusCode, String)> {
+) -> Json<Vec<PodSummary>> {
     let ns = query.namespace.unwrap_or_default();
-    state
-        .k8s
-        .list_pods(&ns)
-        .await
-        .map(Json)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))
+    let pods = state.k8s.list_pods(&ns).await.unwrap_or_default();
+    Json(pods)
 }
 
 async fn list_k8s_namespaces(
     State(state): State<AppState>,
-) -> Result<Json<Vec<NamespaceSummary>>, (StatusCode, String)> {
-    state
-        .k8s
-        .list_namespaces()
-        .await
-        .map(Json)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))
+) -> Json<Vec<NamespaceSummary>> {
+    let ns = state.k8s.list_namespaces().await.unwrap_or_default();
+    Json(ns)
 }
 
 async fn get_k8s_pod_logs(

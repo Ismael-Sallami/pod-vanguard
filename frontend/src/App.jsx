@@ -18,11 +18,43 @@ import RotaryEncoder from './components/RotaryEncoder.jsx';
 import CommandPalette from './components/CommandPalette.jsx';
 import TopologyCanvas from './components/TopologyCanvas.jsx';
 import TerminalView from './components/TerminalView.jsx';
+import { KubernetesClusterView } from './components/KubernetesClusterView.jsx';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const getInitialTab = () => {
+    try {
+      const hash = window.location.hash.replace('#', '');
+      const valid = ['overview', 'containers', 'pods', 'topology', 'terminal', 'logs', 'sentinel', 'pruner'];
+      return valid.includes(hash) ? hash : 'overview';
+    } catch (_) {
+      return 'overview';
+    }
+  };
+
+  const [activeTab, setActiveTabRaw] = useState(getInitialTab);
+
+  const setActiveTab = (tab) => {
+    setActiveTabRaw(tab);
+    try {
+      window.location.hash = tab;
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      const valid = ['overview', 'containers', 'pods', 'topology', 'terminal', 'logs', 'sentinel', 'pruner'];
+      if (valid.includes(hash)) {
+        setActiveTabRaw(hash);
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
   const [systemStatus, setSystemStatus] = useState(null);
   const [containers, setContainers] = useState([]);
+  const [nodes, setNodes] = useState([]);
   const [pods, setPods] = useState([]);
   const [namespaces, setNamespaces] = useState([]);
   const [selectedNamespace, setSelectedNamespace] = useState('all');
@@ -77,8 +109,7 @@ export default function App() {
   useEffect(() => {
     fetchSystemStatus();
     fetchContainers();
-    fetchPods();
-    fetchNamespaces();
+    fetchK8sAll();
     fetchSentinelAudit();
     fetchPruneScan();
     fetchTopology();
@@ -113,6 +144,10 @@ export default function App() {
     const timer = setInterval(() => {
       fetchContainers();
       fetchSystemStatus();
+      if (activeTab === 'pods') {
+        fetchNodes();
+        fetchPods();
+      }
     }, 15000);
 
     return () => {
@@ -120,7 +155,12 @@ export default function App() {
       window.removeEventListener('keydown', handleGlobalKeys);
       clearInterval(timer);
     };
-  }, []);
+  }, [activeTab]);
+
+  // Recargar pods automáticamente al cambiar el namespace seleccionado
+  useEffect(() => {
+    fetchPods();
+  }, [selectedNamespace]);
 
   // APIs REST
   const fetchSystemStatus = async () => {
@@ -140,7 +180,32 @@ export default function App() {
       const res = await fetch(`/api/docker/containers?all=${showAllContainers}`);
       if (res.ok) {
         const data = await res.json();
-        setContainers(data);
+        if (Array.isArray(data)) {
+          setContainers(data);
+        }
+      }
+    } catch (_) {}
+  };
+
+  const [loadingK8s, setLoadingK8s] = useState(true);
+
+  const fetchK8sAll = async () => {
+    setLoadingK8s(true);
+    try {
+      await Promise.all([fetchNodes(), fetchPods(), fetchNamespaces(), fetchSystemStatus()]);
+    } finally {
+      setLoadingK8s(false);
+    }
+  };
+
+  const fetchNodes = async () => {
+    try {
+      const res = await fetch('/api/k8s/nodes');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setNodes(data);
+        }
       }
     } catch (_) {}
   };
@@ -150,7 +215,9 @@ export default function App() {
       const res = await fetch(`/api/k8s/pods?namespace=${selectedNamespace}`);
       if (res.ok) {
         const data = await res.json();
-        setPods(data);
+        if (Array.isArray(data)) {
+          setPods(data);
+        }
       }
     } catch (_) {}
   };
@@ -160,7 +227,9 @@ export default function App() {
       const res = await fetch('/api/k8s/namespaces');
       if (res.ok) {
         const data = await res.json();
-        setNamespaces(data);
+        if (Array.isArray(data)) {
+          setNamespaces(data);
+        }
       }
     } catch (_) {}
   };
@@ -311,11 +380,14 @@ export default function App() {
 
           <button
             className={`hw-tab-btn ${activeTab === 'pods' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('pods'); fetchPods(); }}
+            onClick={() => {
+              setActiveTab('pods');
+              fetchK8sAll();
+            }}
           >
             <CircleDot size={13} />
-            <span>K8s Pods</span>
-            <span className="tab-badge">{pods.length}</span>
+            <span>K8s Cluster</span>
+            <span className="tab-badge">{nodes.length}N / {pods.length}P</span>
           </button>
 
           <button
@@ -647,70 +719,21 @@ export default function App() {
           </div>
         )}
 
-        {/* VISTA 3: KUBERNETES PODS */}
+        {/* VISTA 3: KUBERNETES ARQUITECTURA DE NODOS & PODS */}
         {activeTab === 'pods' && (
-          <div className="dedicated-panel">
-            <div className="panel-toolbar">
-              <span className="scope-title">KUBERNETES CLUSTER PODS</span>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <select
-                  className="hardware-input"
-                  value={selectedNamespace}
-                  onChange={(e) => {
-                    setSelectedNamespace(e.target.value);
-                    fetchPods();
-                  }}
-                >
-                  <option value="all">Todos los Namespaces</option>
-                  {namespaces.map(ns => (
-                    <option key={ns.name} value={ns.name}>{ns.name}</option>
-                  ))}
-                </select>
-                <button className="btn-trigger-orange" onClick={fetchPods}>
-                  <RefreshCw size={12} />
-                  <span>REFRESCAR</span>
-                </button>
-              </div>
-            </div>
-
-            <div style={{ overflowX: 'auto', flex: 1 }}>
-              <table className="hardware-data-table">
-                <thead>
-                  <tr>
-                    <th>NAMESPACE</th>
-                    <th>NOMBRE DEL POD</th>
-                    <th>ESTADO</th>
-                    <th>LISTOS</th>
-                    <th>REINICIOS</th>
-                    <th>NODO</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pods.map(p => (
-                    <tr key={p.name}>
-                      <td><span className="text-orange">{p.namespace}</span></td>
-                      <td><strong>{p.name}</strong></td>
-                      <td>
-                        <span className={`lcd-status-badge ${p.phase === 'Running' ? 'running' : 'warning'}`}>
-                          {p.phase.toUpperCase()}
-                        </span>
-                      </td>
-                      <td>{p.ready}</td>
-                      <td>{p.restarts}</td>
-                      <td><span className="text-dim">{p.node || 'local-worker'}</span></td>
-                    </tr>
-                  ))}
-                  {pods.length === 0 && (
-                    <tr>
-                      <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: '#545b6b' }}>
-                        No se detectó un clúster de Kubernetes en ejecución. PodVanguard opera de forma autónoma con el socket de Docker local.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <KubernetesClusterView
+            nodes={nodes}
+            pods={pods}
+            namespaces={namespaces}
+            clusterStatus={systemStatus?.k8s_status}
+            loading={loadingK8s}
+            onRefresh={fetchK8sAll}
+            selectedNamespace={selectedNamespace}
+            onSelectNamespace={(ns) => {
+              setSelectedNamespace(ns);
+            }}
+            showToast={showToast}
+          />
         )}
 
         {/* VISTA 4: PANTALLA EXPANDIDA DE TOPOLOGÍA */}
@@ -774,49 +797,163 @@ export default function App() {
 
         {/* VISTA 7: SENTINEL SHIELD */}
         {activeTab === 'sentinel' && (
-          <div className="dedicated-panel" style={{ padding: '20px', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <div className="dedicated-panel" style={{ padding: '24px', overflowY: 'auto' }}>
+            {/* CABECERA DE SENTINEL SHIELD */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
               <div>
-                <h2 style={{ fontFamily: 'Archivo', fontSize: '18px', fontWeight: 800 }}>
-                  VANGUARD SENTINEL SHIELD :: AUDITORÍA HEURÍSTICA
-                </h2>
-                <p style={{ color: '#8e96a4', fontSize: '11px' }}>
-                  Análisis proactivo de riesgos, credenciales expuestas en texto plano y límites de contención en Linux.
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldAlert size={18} className="text-orange" />
+                  <h2 style={{ fontFamily: 'Archivo', fontSize: '18px', fontWeight: 800, margin: 0, color: '#fff' }}>
+                    VANGUARD SENTINEL SHIELD :: AUDITORÍA HEURÍSTICA DE SEGURIDAD
+                  </h2>
+                </div>
+                <p style={{ color: '#8e96a4', fontSize: '12px', marginTop: '4px' }}>
+                  Supervisión proactiva en Linux: detección de secretos en variables de entorno, puertos expuestos sin cifrar y cuotas OOM.
                 </p>
               </div>
-              <div style={{
-                fontSize: '24px',
-                fontWeight: 800,
-                color: sentinelReport && sentinelReport.score < 80 ? '#ff5500' : '#00e575'
-              }}>
-                {sentinelReport ? sentinelReport.score : 100} / 100
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <button className="btn-trigger-orange" onClick={fetchSentinelAudit}>
+                  <RefreshCw size={12} /> RE-ESCANEAR
+                </button>
+                <div style={{
+                  background: '#090c12',
+                  border: '2px solid #222836',
+                  borderRadius: '4px',
+                  padding: '8px 16px',
+                  textAlign: 'right'
+                }}>
+                  <div style={{ fontSize: '0.68rem', color: '#8e95a5', fontWeight: 700 }}>SECURITY POSTURE SCORE</div>
+                  <div style={{
+                    fontSize: '24px',
+                    fontWeight: 800,
+                    color: !sentinelReport ? '#8e95a5' : sentinelReport.score >= 80 ? '#00e575' : sentinelReport.score >= 50 ? '#ffb000' : '#ff3b30'
+                  }}>
+                    {sentinelReport ? sentinelReport.score : '--'} / 100
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-              <div className="lcd-module">
-                <span className="lcd-stat-label">SECRETOS EN VARIABLES DE ENTORNO</span>
-                <span className="lcd-stat-val text-mint">0 DETECTADOS</span>
-                <p style={{ color: '#8e96a4', fontSize: '10px', marginTop: '6px' }}>
-                  Escaneo activo de patrones AWS, tokens de GitHub/OpenAI y llaves privadas RSA.
+            {/* RESUMEN DE GRAVEDADES */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+              <div className="lcd-module" style={{ borderLeft: '3px solid #ff3b30' }}>
+                <span className="lcd-stat-label">VULNERABILIDADES CRÍTICAS</span>
+                <span className="lcd-stat-val" style={{ color: '#ff3b30', fontSize: '1.4rem' }}>
+                  {sentinelReport?.critical_count ?? 0} DETECTADAS
+                </span>
+                <p style={{ color: '#8e96a4', fontSize: '11px', marginTop: '4px' }}>
+                  Puertos de BD en 0.0.0.0, credenciales en plano o contenedores privilegiados.
                 </p>
               </div>
 
-              <div className="lcd-module">
-                <span className="lcd-stat-label">RIESGO OOM (SIN LÍMITE DE MEMORIA)</span>
-                <span className="lcd-stat-val text-orange">PROTEGIDO</span>
-                <p style={{ color: '#8e96a4', fontSize: '10px', marginTop: '6px' }}>
-                  Supervisión de cuotas de cgroups v2 para evitar saturación del host.
+              <div className="lcd-module" style={{ borderLeft: '3px solid #ffb000' }}>
+                <span className="lcd-stat-label">ADVERTENCIAS DE CONFIGURACIÓN</span>
+                <span className="lcd-stat-val" style={{ color: '#ffb000', fontSize: '1.4rem' }}>
+                  {sentinelReport?.warning_count ?? 0} RIESGOS
+                </span>
+                <p style={{ color: '#8e96a4', fontSize: '11px', marginTop: '4px' }}>
+                  Falta de límites de memoria (OOM), procesos ejecutándose como usuario root.
                 </p>
               </div>
 
-              <div className="lcd-module">
-                <span className="lcd-stat-label">PUERTOS EXPUESTOS A 0.0.0.0</span>
-                <span className="lcd-stat-val text-mint">AUDITADO</span>
-                <p style={{ color: '#8e96a4', fontSize: '10px', marginTop: '6px' }}>
-                  Verificación de interfaces de red locales para evitar exposición pública de bases de datos.
+              <div className="lcd-module" style={{ borderLeft: '3px solid #00e575' }}>
+                <span className="lcd-stat-label">CONTENEDORES INSPECCIONADOS</span>
+                <span className="lcd-stat-val text-mint" style={{ fontSize: '1.4rem' }}>
+                  {sentinelReport?.total_inspected ?? containers.length} ANALIZADOS
+                </span>
+                <p style={{ color: '#8e96a4', fontSize: '11px', marginTop: '4px' }}>
+                  Inspección heurística sobre cgroups v2 y sockets nativos de Linux.
                 </p>
               </div>
+            </div>
+
+            {/* LISTA EXHAUSTIVA DE HALLAZGOS Y REMEDIACIÓN */}
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fff', letterSpacing: '0.05em', marginBottom: '12px' }}>
+              HALLAZGOS DE AUDITORÍA Y GUÍA DE REMEDIACIÓN TÉCNICA
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {sentinelReport?.findings?.map((finding, idx) => {
+                const isCrit = finding.severity === 'CRITICAL';
+                const isWarn = finding.severity === 'WARNING';
+                const color = isCrit ? '#ff3b30' : isWarn ? '#ffb000' : '#00e5ff';
+
+                return (
+                  <div
+                    key={`${finding.rule_id}_${finding.container_id}_${idx}`}
+                    style={{
+                      background: '#0d1017',
+                      border: '1px solid #222836',
+                      borderLeft: `4px solid ${color}`,
+                      borderRadius: '3px',
+                      padding: '14px 16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          background: isCrit ? 'rgba(255, 59, 48, 0.15)' : 'rgba(255, 176, 0, 0.15)',
+                          color: color,
+                          padding: '2px 6px',
+                          borderRadius: '2px',
+                          fontSize: '0.68rem',
+                          fontWeight: 800
+                        }}>
+                          {finding.severity}
+                        </span>
+                        <span style={{ color: '#ffaa80', fontWeight: 700, fontSize: '0.78rem' }}>
+                          [{finding.rule_id}]
+                        </span>
+                        <span style={{ color: '#fff', fontWeight: 800, fontSize: '0.88rem' }}>
+                          {finding.title}
+                        </span>
+                      </div>
+
+                      <span style={{ fontSize: '0.75rem', color: '#8e95a5' }}>
+                        Contenedor: <strong style={{ color: '#00e5ff' }}>{finding.container_name}</strong>
+                      </span>
+                    </div>
+
+                    <p style={{ color: '#cbd5e1', fontSize: '0.78rem', margin: 0, lineHeight: 1.5 }}>
+                      {finding.description}
+                    </p>
+
+                    <div style={{
+                      background: '#07090e',
+                      border: '1px solid #1a202c',
+                      borderRadius: '2px',
+                      padding: '8px 12px',
+                      fontSize: '0.74rem',
+                      color: '#a0aec0',
+                      marginTop: '4px'
+                    }}>
+                      <strong style={{ color: '#ff7733', marginRight: '6px' }}>REMEDIACIÓN RECOMENDADA:</strong>
+                      <span>{finding.remediation}</span>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {(!sentinelReport?.findings || sentinelReport.findings.length === 0) && (
+                <div style={{
+                  background: 'rgba(0, 229, 117, 0.05)',
+                  border: '1px solid #00e575',
+                  borderRadius: '3px',
+                  padding: '24px',
+                  textAlign: 'center',
+                  color: '#00e575'
+                }}>
+                  <ShieldCheck size={32} style={{ margin: '0 auto 8px' }} />
+                  <div style={{ fontWeight: 800, fontSize: '1rem' }}>CERO RIESGOS DETECTADOS</div>
+                  <div style={{ color: '#8e95a5', fontSize: '0.78rem', marginTop: '4px' }}>
+                    Todos los contenedores cumplen con las directivas de seguridad de Linux y cgroups v2.
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
