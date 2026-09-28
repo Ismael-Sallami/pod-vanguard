@@ -1,46 +1,49 @@
 # PodVanguard
 
 Centro de Mando Web de Alto Rendimiento para Contenedores & Pods en Linux.  
-Desarrollado en Rust con arquitectura de binario estático autocontenido y panel reactivo embebido.
+Arquitectura de binario nativo estático en Rust con panel web reactivo embebido.
 
 Autor: Ismael Sallami Moreno  
 Licencia: MIT  
-Repositorio: https://github.com/Ismael-Sallami/pod-vanguard  
 
 ---
 
 ```
 ================================================================================
   P O D   V A N G U A R D  ::  CONTROL PLANE & RUNTIME MONITOR
-  Plataforma: Linux (x86_64) | Arquitectura: Rust Core + Embedded React 19
+  Plataforma: Linux (x86_64) | Arquitectura: Rust Core + Embedded Web Dashboard
 ================================================================================
 ```
 
 ---
 
-## 1. Vision General
+## 1. Visión General
 
-PodVanguard es una plataforma de observabilidad, auditoria de seguridad y orquestacion para entornos de desarrollo y servidores Linux. Combina la velocidad de un nucleo asincrono en Rust con una interfaz web reactiva inspirada en la estetica de ingenieria mecanica (Teenage Engineering y Brutalismo Suizo), optimizada para ofrecer alta densidad informativa, atajos de teclado globales y cero dependencias de ejecucion en el host.
+PodVanguard es una herramienta de observabilidad, auditoría de seguridad y gestión de infraestructura local para contenedores Docker y pods de Kubernetes en entornos Linux. Diseñado para ofrecer baja latencia, consumo mínimo de recursos y cero dependencias de ejecución en el host, compila todo el motor asíncrono y los activos del panel web dentro de un único ejecutable binario estático de ~4.5 MB.
 
-El sistema se compila en un unico ejecutable binario de 4.5 MB que incluye todos los activos estaticos de la interfaz web, sirviendo el centro de mando localmente sin requerir Node.js, Python ni servidores externos instalados por el usuario.
-
----
-
-## 2. Caracteristicas Principales
-
-- Gestion Unificada de Contenedores: Control de ciclo de vida completo (arranque, detencion, reinicio, pausa y eliminacion) interactuando directamente con el socket UNIX local de Docker (/var/run/docker.sock) o Podman mediante llamadas asincronas.
-- Introspeccion de Kubernetes (K8s): Deteccion automatica de configuracion en `~/.kube/config`, lectura de namespaces, estados de pods, reinicios de contenedores y ubicacion en nodos del cluster. Si no se detecta cluster activo, opera de forma autonoma sin interrupciones.
-- Vanguard Sentinel Shield: Motor de analisis heuristico de seguridad que audita en tiempo real variables de entorno en busca de secretos expuestos en texto plano (claves de AWS, tokens de GitHub/OpenAI, llaves privadas RSA/SSH), banderas privilegiadas, procesos corriendo como root (UID 0), puertos sensibles expuestos a 0.0.0.0 (PostgreSQL, MySQL, Redis, Docker daemon) y ausencia de limites de memoria (riesgo OOM).
-- Saneamiento de Disco Inteligente (Pruner): Calculo milimetrico del almacenamiento residual ocupado por contenedores parados, imagenes huerfanas (dangling) y volumenes desconectados, con ejecucion de purga segura en un clic.
-- Terminal Web Interactiva (PTY Exec): Acceso directo a una consola interactiva dentro de cualquier contenedor en ejecucion mediante WebSockets y redimensionamiento dinamico de terminal.
-- Transmision de Logs en Vivo: Flujo continuo de registros (stdout y stderr) con filtrado instantaneo por expresiones regulares (Regex) y auto-desplazamiento.
-- Esquematico CAD de Topologia de Red: Grafo interactivo en lienzo vectorial con nodos arrastrables que visualiza redes virtuales (Bridge, Host, Overlay), puertos publicados y volumenes montados.
-- Telemetria de Hardware con Medidores VU: Monitoreo en tiempo real del uso de CPU y memoria RAM del host mediante bloques LED segmentados e indicadores de estado de alta precision.
-- Command Palette Global (Ctrl+K / Cmd+K): Buscador flotante para navegacion instantanea entre modulos y ejecucion de acciones sin despegar las manos del teclado.
+No requiere runtimes externos en el host (sin Node.js, Python ni servicios de terceros adicionales). Solo interactúa directamente con el socket local de Docker (`/var/run/docker.sock`) y la configuración activa de Kubernetes (`~/.kube/config`).
 
 ---
 
-## 3. Arquitectura del Sistema
+## 2. Capacidades Principales
+
+- **Gestión de Ciclo de Vida de Contenedores**: Inicio, detención, reinicio, pausa y eliminación directa mediante llamadas asíncronas de bajo nivel a Docker/Podman vía socket UNIX.
+- **Introspección de Kubernetes (K8s)**: Detección automática del cluster local vía kubeconfig, visualización de namespaces, estado de pods, reinicios de réplicas y mapeo de nodos. Si no hay cluster disponible, opera de forma transparente en modo solo-Docker.
+- **Sentinel Shield (Auditoría de Seguridad)**: Detección heurística de riesgos en tiempo real:
+  - Variables de entorno con claves y tokens en texto plano (AWS, OpenAI, GitHub, claves privadas RSA/SSH).
+  - Contenedores ejecutándose como `root` (UID 0) o con bandera `--privileged`.
+  - Puertos de bases de datos y administración expuestos sin filtrar a `0.0.0.0` (Postgres, MySQL, Redis, Docker API).
+  - Ausencia de límites de memoria RAM (prevención de caídas por OOM-Killer).
+- **Pruner de Almacenamiento**: Cálculo de espacio recuperable en disco (contenedores parados, imágenes huérfanas *dangling* y volúmenes sin vincular) con ejecución de saneamiento seguro en un solo clic.
+- **Terminal Web Interactiva (PTY)**: Sesión de consola interactiva en tiempo real sobre WebSockets (`/bin/sh` o `/bin/bash`) acoplada al interior de cualquier contenedor activo.
+- **Transmisión de Registros (Live Logs)**: Flujo en directo de `stdout` y `stderr` vía WebSockets, con filtrado dinámico mediante expresiones regulares (Regex) y auto-desplazamiento.
+- **Topología de Red Vectorial**: Grafo interactivo en lienzo tipo CAD para inspeccionar redes virtuales (bridge, host, overlay), puertos expuestos y volúmenes montados.
+- **Telemetría de Recursos**: Monitorización en vivo del uso de CPU y memoria RAM del host mediante instrumentación de hardware e indicadores de carga.
+- **Command Palette Global (`Ctrl+K`)**: Buscador flotante para cambio rápido de módulos y ejecución directa de acciones de control.
+
+---
+
+## 3. Esquema de Arquitectura
 
 ```
 +-----------------------------------------------------------------------------+
@@ -48,8 +51,8 @@ El sistema se compila en un unico ejecutable binario de 4.5 MB que incluye todos
 +-----------------------------------------------------------------------------+
 |                                                                             |
 |   +-----------------------+                    +------------------------+   |
-|   |   React 19 Dashboard  | <--- WebSockets -- |   Axum HTTP/WS Engine  |   |
-|   |   (Teenage Eng. UI)   |      REST JSON     |   (Rust Async Runtime) |   |
+|   |   Web UI Dashboard    | <--- WebSockets -- |   Axum HTTP/WS Engine  |   |
+|   |   (Single Page App)   |      REST JSON     |   (Rust Async Runtime) |   |
 |   +-----------------------+                    +------------------------+   |
 |               ^                                             |               |
 |               |                                             v               |
@@ -75,37 +78,38 @@ El sistema se compila en un unico ejecutable binario de 4.5 MB que incluye todos
 
 ---
 
-## 4. Instalacion
+## 4. Instalación
 
-### Metodo 1: Instalador en una linea (Recomendado)
+### Método 1: Script de instalación directa (Recomendado)
 
-Ejecuta el siguiente comando en tu terminal para descargar e instalar automaticamente el binario en `~/.local/bin`:
+Descarga e instala el binario optimizado para Linux x86_64 directamente en `~/.local/bin`:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Ismael-Sallami/pod-vanguard/main/install.sh | bash
 ```
 
-### Metodo 2: Compilacion desde codigo fuente
+### Método 2: Compilación desde código fuente
 
-Requisitos de compilacion:
-- Linux x86_64
-- Rust y Cargo (1.80+)
-- Node.js (v18+) y npm para el empaquetado inicial de la interfaz web
+**Requisitos previos:**
+- Sistema operativo Linux x86_64
+- Toolchain de Rust (Cargo 1.80+)
+- Node.js (v18+) y npm (exclusivamente para la generación previa de los activos web)
 
 ```bash
+# 1. Clonar el repositorio
 git clone https://github.com/Ismael-Sallami/pod-vanguard.git
 cd pod-vanguard
 
-# Compilar los activos de la interfaz web
+# 2. Compilar los activos de la interfaz web
 cd frontend
 npm install
 npm run build
 cd ..
 
-# Compilar el binario release con LTO y optimizaciones maximas
+# 3. Compilar el binario release en Rust
 cargo build --release
 
-# El binario autocontenido estara disponible en:
+# El ejecutable compilado estará disponible en:
 ./target/release/pod-vanguard
 ```
 
@@ -113,48 +117,48 @@ cargo build --release
 
 ## 5. Modo de Uso
 
-Inicia el centro de mando ejecutando el binario instalado:
+Inicia el centro de mando ejecutando el binario:
 
 ```bash
-# Inicio estandar en http://127.0.0.1:9090
+# Inicio por defecto en http://127.0.0.1:9090
 pod-vanguard
 
-# O utilizando el alias corto
+# O utilizando el alias abreviado configurado por el instalador
 pv
 
-# Especificar un puerto y abrir el navegador automaticamente
+# Abrir automáticamente el navegador predeterminado en un puerto específico
 pod-vanguard -p 8080 --open
 
-# Vincular a todas las interfaces de red del servidor
+# Escuchar en todas las interfaces de red locales
 pod-vanguard -H 0.0.0.0 -p 9090
 ```
 
-### Opciones de Linea de Comandos
+### Parámetros de Línea de Comandos
 
 ```
 USO:
     pod-vanguard [OPCIONES]
 
 OPCIONES:
-    -p, --port <PUERTO>    Puerto TCP de escucha para la interfaz web (por defecto: 9090)
-    -H, --host <HOST>      Direccion IP de enlace para el servidor (por defecto: 127.0.0.1)
-        --open             Abre el navegador predeterminado del sistema automaticamente
-    -v, --version          Muestra la version instalada y finaliza
-    -h, --help             Muestra la ayuda de linea de comandos
+    -p, --port <PUERTO>    Puerto TCP de escucha para el servidor HTTP (por defecto: 9090)
+    -H, --host <HOST>      Dirección IP de enlace (por defecto: 127.0.0.1)
+        --open             Abre automáticamente el navegador predeterminado al iniciar
+    -v, --version          Muestra la versión de la herramienta y finaliza
+    -h, --help             Muestra este mensaje de ayuda
 ```
 
 ---
 
 ## 6. Atajos de Teclado del Dashboard
 
-- `Ctrl + K` / `Cmd + K`: Abre la paleta de comandos global para salto rapido y acciones inmediatas.
-- `Escape`: Cierra modales y paneles desplegables activos.
-- `Enter`: Confirma comandos en la terminal interactiva o en el buscador.
-- `Arriba / Abajo`: Navegacion por el historial de comandos ejecutados en la shell.
+- `Ctrl + K` / `Cmd + K`: Abre la paleta de comandos global para búsqueda y saltos directos.
+- `Escape`: Cierra modales, menús contextuales y la paleta de comandos.
+- `Enter`: Confirma órdenes en la terminal web interactiva o filtros de búsqueda.
+- `Flecha Arriba / Abajo`: Historial de comandos en la terminal integrada.
 
 ---
 
 ## 7. Autor y Licencia
 
-Proyecto disenado e implementado por Ismael Sallami Moreno.  
-Distribuido bajo los terminos de la Licencia MIT.
+Desarrollado por **Ismael Sallami Moreno**.  
+Distribuido bajo licencia de código abierto **MIT**.
