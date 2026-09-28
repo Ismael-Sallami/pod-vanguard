@@ -158,7 +158,27 @@ OPCIONES:
 
 ---
 
-## 7. Autor y Licencia
+## 7. Entorno de Demostración Local
+
+Si deseas probar PodVanguard de inmediato con datos realistas (topología viva de red bridge, puertos mapeados, volúmenes de datos y auditoría de seguridad heurística Sentinel Shield), puedes utilizar el entorno de pruebas incluido:
+
+```bash
+# 1. Levantar los 4 microservicios ligeros de prueba (api-gateway, auth-service, cache-redis, worker-queue)
+./demo-env.sh start
+
+# 2. Iniciar PodVanguard y abrir el panel de control en tu navegador
+pv --open
+
+# 3. Consultar el estado de los contenedores de prueba
+./demo-env.sh status
+
+# 4. Detener y limpiar los contenedores y volúmenes cuando termines
+./demo-env.sh stop
+```
+
+---
+
+## 8. Autor y Licencia
 
 Desarrollado por **Ismael Sallami Moreno**.  
 Distribuido bajo licencia de código abierto **MIT**.

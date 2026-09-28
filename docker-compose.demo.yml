@@ -1,0 +1,75 @@
+# ==============================================================================
+# PodVanguard - Entorno de Demostración Local
+# Arquitectura simulada de microservicios con red bridge, puertos y volúmenes
+# ==============================================================================
+services:
+  # Gateway NGINX como punto de entrada HTTP con puerto publicado
+  api-gateway:
+    image: nginx:alpine
+    container_name: pv-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    networks:
+      - pv-demo-net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # Microservicio de autenticación simulado (Node/Alpine ligero)
+  auth-service:
+    image: alpine:latest
+    container_name: pv-auth-service
+    restart: unless-stopped
+    command: >
+      sh -c "while true; do echo 'auth-service healthy at $(date)'; sleep 5; done"
+    networks:
+      - pv-demo-net
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - SERVICE_PORT=3000
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # Base de datos en caché Redis con volumen persistente
+  cache-redis:
+    image: redis:alpine
+    container_name: pv-cache-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - pv-redis-data:/data
+    networks:
+      - pv-demo-net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # Procesador de colas en segundo plano (sin límite de memoria para activar regla Sentinel Shield SEC-OOM)
+  worker-queue:
+    image: alpine:latest
+    container_name: pv-worker-queue
+    restart: unless-stopped
+    command: >
+      sh -c "while true; do echo 'Processing jobs from queue... status=OK'; sleep 8; done"
+    networks:
+      - pv-demo-net
+    environment:
+      - QUEUE_NAME=analytics-events
+      - CONCURRENCY=4
+
+volumes:
+  pv-redis-data:
+    name: pv-redis-data
+
+networks:
+  pv-demo-net:
+    name: pv-demo-net
+    driver: bridge
